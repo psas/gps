@@ -255,10 +255,12 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 		printf("\n");
 	}
 
-	//printf("# SV %d doppler stats\n", SV[sv].PRN);
+	if(TRACE)
+		printf("# SV %d correlation\n", SV[sv].PRN);
 	stats.snr = 0;
 	for(shift = -max_shift; shift <= max_shift; ++shift)
 	{
+		const double doppler = shift * ((double) sample_freq / data_fft_len);
 		double max_pwr = 0, tot_pwr = 0, best_phase = 0, snr;
 		for(i = 0; i < len / 2; ++i)
 		{
@@ -268,14 +270,12 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 
 		fftw_execute(ifft);
 
-		if(TRACE)
-			printf("# SV %d correlation\n", SV[sv].PRN);
 		for(i = 0; i < len; ++i)
 		{
 			double pwr = prod[i][0] * prod[i][0] + prod[i][1] * prod[i][1];
 			double phase = i * (1023.0 / len);
 			if(TRACE)
-				printf("%f\t%f\n", phase, pwr);
+				printf("%f\t%f\t%f\n", doppler, phase, pwr);
 			if(pwr > max_pwr)
 			{
 				max_pwr = pwr;
@@ -283,19 +283,19 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 			}
 			tot_pwr += pwr;
 		}
-		if(TRACE)
-			printf("\n");
 
 		snr = max_pwr / (tot_pwr / len);
 		if(snr > stats.snr)
 		{
 			stats.snr = snr;
-			stats.doppler = shift * ((double) sample_freq / data_fft_len);
+			stats.doppler = doppler;
 			stats.phase = best_phase;
 		}
-		//printf("%f\t%f\t%f\n", shift * ((double) sample_freq / data_fft_len), snr, best_phase);
+		if(TRACE)
+			printf("# best for doppler %f: code phase %f, S/N %f\n", doppler, best_phase, snr);
 	}
-	//printf("\n");
+	if(TRACE)
+		printf("\n");
 
 	fftw_destroy_plan(ifft);
 	fftw_free(ca_buf);
