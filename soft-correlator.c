@@ -225,6 +225,24 @@ static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 	to[1] = a[1] * b[0] - a[0] * b[1];
 }
 
+static void update_stats(struct signal_strength *stats, double bin_width, int shift, double phase, double snr_0, double snr_1, double snr_2)
+{
+	double shift_correction;
+	/* ignore this sample if it is not a local peak */
+	if(snr_0 > snr_1 || snr_2 > snr_1)
+		return;
+	/* take only the highest peak */
+	if(snr_1 <= stats->snr)
+		return;
+
+	/* do a quadratic interpolation of the three points around this peak */
+	/* XXX: there's no reason to believe the peaks are parabolic. */
+	shift_correction = 0.5 * (snr_0 - snr_2) / (snr_0 - 2 * snr_1 + snr_2);
+	stats->snr = snr_1 - 0.25 * (snr_0 - snr_2) * shift_correction;
+	stats->doppler = (shift + shift_correction) * bin_width;
+	stats->phase = phase;
+}
+
 static struct signal_strength check_satellite(unsigned int sample_freq, fftw_complex *data_fft, unsigned int data_fft_len, int sv)
 {
 	struct signal_strength stats;
@@ -236,6 +254,8 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	fftw_complex *ca_fft = ca_buf;
 	const double samples_per_chip = sample_freq / 1023e3;
 	const int max_shift = 5000 * data_fft_len / sample_freq;
+	const double bin_width = (double) sample_freq / data_fft_len;
+	double snr_1 = 0, snr_2 = 0, best_phase_1 = 0;
 	unsigned int i;
 	int shift;
 	fftw_plan fft = fftw_plan_dft_r2c_1d(len, ca_samples, ca_fft, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
@@ -260,7 +280,7 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	stats.snr = 0;
 	for(shift = -max_shift; shift <= max_shift; ++shift)
 	{
-		const double doppler = shift * ((double) sample_freq / data_fft_len);
+		const double doppler = shift * bin_width;
 		double max_pwr = 0, tot_pwr = 0, best_phase = 0, snr;
 		for(i = 0; i < len / 2; ++i)
 		{
@@ -285,15 +305,15 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 		}
 
 		snr = max_pwr / (tot_pwr / len);
-		if(snr > stats.snr)
-		{
-			stats.snr = snr;
-			stats.doppler = doppler;
-			stats.phase = best_phase;
-		}
+		update_stats(&stats, bin_width, shift - 1, best_phase_1, snr_2, snr_1, snr);
 		if(TRACE)
 			printf("# best for doppler %f: code phase %f, S/N %f\n", doppler, best_phase, snr);
+
+		snr_2 = snr_1;
+		snr_1 = snr;
+		best_phase_1 = best_phase;
 	}
+	update_stats(&stats, bin_width, max_shift, best_phase_1, snr_2, snr_1, 0);
 	if(TRACE)
 		printf("\n");
 
