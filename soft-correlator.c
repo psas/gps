@@ -20,6 +20,7 @@
 #include <fftw3.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define TRACE 0
 
@@ -371,7 +372,11 @@ int main()
 	int i;
 	fftw_plan training_plan = fftw_plan_dft_1d(training_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
-	training_len = read_samples(training, training_len);
+	if(read_samples(training, training_len) < training_len)
+	{
+		fprintf(stderr, "couldn't read %u input samples needed for training\n", training_len);
+		exit(EXIT_FAILURE);
+	}
 	fftw_execute(training_plan);
 	fftw_destroy_plan(training_plan);
 
@@ -403,5 +408,5 @@ int main()
 	fftw_free(data);
 	fftw_free(training);
 	fftw_cleanup();
-	return 0;
+	exit(EXIT_SUCCESS);
 }
