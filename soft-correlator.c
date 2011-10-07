@@ -18,6 +18,7 @@
  */
 
 #include <fftw3.h>
+#include <math.h>
 #include <stdio.h>
 
 #define TRACE 0
@@ -190,40 +191,18 @@ static int cacode(int chip, int sv)
 	return ca_code_states[chip].G1 ^ ca_code_states[g2chip].G2;
 }
 
-static void read_samples(fftw_complex *data, unsigned int data_len)
+static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 {
 	unsigned int i;
 	float buf[2];
 	for(i = 0; i < data_len; ++i)
 	{
-		fread(buf, sizeof(float), 2, stdin);
+		if(!fread(buf, sizeof(float), 2, stdin))
+			break;
 		data[i][0] = buf[0];
 		data[i][1] = buf[1];
 	}
-
-	if(TRACE)
-	{
-		printf("# input data\n");
-		for(i = 0; i < data_len; ++i)
-			printf("%f\t%f\n", data[i][0], data[i][1]);
-		printf("\n");
-	}
-
-	fftw_plan p = fftw_plan_dft_1d(data_len, data, data, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
-	fftw_execute(p);
-	fftw_destroy_plan(p);
-
-	if(TRACE)
-		printf("# input data FFT\n");
-	for(i = 0; i < data_len; ++i)
-	{
-		if(TRACE)
-			printf("%f\t%f\n", data[i][0], data[i][1]);
-		/* precompute the complex conjugate of the data FFT */
-		data[i][1] = -data[i][1];
-	}
-	if(TRACE)
-		printf("\n");
+	return i;
 }
 
 static void complex_mul(fftw_complex to, fftw_complex a, fftw_complex b)
@@ -236,6 +215,47 @@ static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 {
 	to[0] = a[0] * b[0] + a[1] * b[1];
 	to[1] = a[1] * b[0] - a[0] * b[1];
+}
+
+static void demod(unsigned int sample_freq, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
+{
+	/* XXX: This fudge factor compensates receiver clock error, but
+	 * should not be necessary with a proper code tracking loop. */
+	const double clock_error_hack = 9.35;
+	const double samples_per_chip = sample_freq / (clock_error_hack + 1023e3 * (1 + doppler / 1575.42e6));
+	double phase_offset = 0;
+	unsigned int i;
+	int ready = 0;
+	fftw_complex prompt_sum = { 0, 0 };
+	if(TRACE)
+		printf("# navigation data from sv %d with Doppler shift %f\n", SV[sv].PRN, doppler);
+	for(i = 0; i < data_len; ++i)
+	{
+		fftw_complex nco, result;
+		int chip = (int) (code_phase + (delay_samples + i) / samples_per_chip) % 1023;
+		int prompt = cacode(chip, sv) ? 1 : -1;
+		nco[0] = cos(phase_offset - doppler * 2 * M_PI * i / sample_freq);
+		nco[1] = sin(phase_offset - doppler * 2 * M_PI * i / sample_freq);
+		complex_mul(result, data[i], nco);
+		prompt_sum[0] += result[0] * prompt;
+		prompt_sum[1] += result[1] * prompt;
+
+		/* Sample the data signal at rising edge of the start of
+		 * the code sequence. */
+		if(chip != 0)
+			ready = 1;
+		else if(ready)
+		{
+			if(fabs(prompt_sum[0]) >= 1)
+				phase_offset -= atan(prompt_sum[1] / prompt_sum[0]);
+			if(TRACE)
+				printf("%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_offset);
+			prompt_sum[0] = prompt_sum[1] = 0;
+			ready = 0;
+		}
+	}
+	if(TRACE)
+		printf("\n");
 }
 
 static void update_stats(struct signal_strength *stats, double bin_width, int shift, double phase, double snr_0, double snr_1, double snr_2)
@@ -339,14 +359,37 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 int main()
 {
 	const unsigned int sample_freq = 4000000;
-	const unsigned int data_len = sample_freq * 20 / 1000;
+	unsigned int training_len = sample_freq * 20 / 1000;
+	fftw_complex *training = fftw_malloc(sizeof(fftw_complex) * training_len);
+	unsigned int data_len = sample_freq * 2;
 	fftw_complex *data = fftw_malloc(sizeof(fftw_complex) * data_len);
 	struct signal_strength signals[sizeof SV / sizeof *SV];
 	int i;
+	fftw_plan training_plan = fftw_plan_dft_1d(training_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
-	read_samples(data, data_len);
+	training_len = read_samples(training, training_len);
+	fftw_execute(training_plan);
+	fftw_destroy_plan(training_plan);
+
+	if(TRACE)
+		printf("# training FFT\n");
+	for(i = 0; i < training_len; ++i)
+	{
+		if(TRACE)
+			printf("%f\t%f\n", training[i][0], training[i][1]);
+		/* precompute the complex conjugate of the training FFT */
+		training[i][1] = -training[i][1];
+	}
+	if(TRACE)
+		printf("\n");
+
+	data_len = read_samples(data, data_len);
+
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
-		signals[i] = check_satellite(sample_freq, data, data_len, i);
+	{
+		signals[i] = check_satellite(sample_freq, training, training_len, i);
+		demod(sample_freq, data, data_len, i, signals[i].doppler, signals[i].phase, training_len);
+	}
 
 	printf("# SV, S/N ratio, doppler shift (Hz), phase (chips)\n");
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
@@ -354,6 +397,7 @@ int main()
 	printf("\n");
 
 	fftw_free(data);
+	fftw_free(training);
 	fftw_cleanup();
 	return 0;
 }
