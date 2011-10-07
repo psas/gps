@@ -225,23 +225,27 @@ static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 
 static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
 {
-	const double samples_per_chip = sample_freq / (clock_error + 1023e3 * (1 + doppler / 1575.42e6));
-	double phase_offset = 0;
+	const double chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
+	double phase = 0;
 	unsigned int i;
 	int ready = 0;
 	fftw_complex prompt_sum = { 0, 0 };
+	code_phase += delay_samples * chips_per_sample;
 	if(TRACE)
 		printf("# navigation data from sv %d with Doppler shift %f\n", SV[sv].PRN, doppler);
 	for(i = 0; i < data_len; ++i)
 	{
 		fftw_complex nco, result;
-		int chip = (int) (code_phase + (delay_samples + i) / samples_per_chip) % 1023;
+		int chip = (int) code_phase % 1023;
 		int prompt = cacode(chip, sv) ? 1 : -1;
-		nco[0] = cos(phase_offset - doppler * 2 * M_PI * i / sample_freq);
-		nco[1] = sin(phase_offset - doppler * 2 * M_PI * i / sample_freq);
+		nco[0] = cos(phase);
+		nco[1] = sin(phase);
 		complex_mul(result, data[i], nco);
 		prompt_sum[0] += result[0] * prompt;
 		prompt_sum[1] += result[1] * prompt;
+
+		phase -= doppler * 2 * M_PI / sample_freq;
+		code_phase += chips_per_sample;
 
 		/* Sample the data signal at rising edge of the start of
 		 * the code sequence. */
@@ -249,12 +253,20 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 			ready = 1;
 		else if(ready)
 		{
+			double phase_error = 0;
 			if(fabs(prompt_sum[0]) >= 1)
-				phase_offset -= atan(prompt_sum[1] / prompt_sum[0]);
+			{
+				phase_error = atan(prompt_sum[1] / prompt_sum[0]);
+				phase -= phase_error;
+			}
 			if(TRACE)
-				printf("%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_offset);
+				printf("%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_error);
 			prompt_sum[0] = prompt_sum[1] = 0;
 			ready = 0;
+
+			/* keep phases in a reasonable range */
+			phase -= (int) (phase / (2 * M_PI)) * 2 * M_PI;
+			code_phase -= 1023;
 		}
 	}
 	if(TRACE)
