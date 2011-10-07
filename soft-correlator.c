@@ -248,10 +248,10 @@ static void update_stats(struct signal_strength *stats, double bin_width, int sh
 	if(snr_1 <= stats->snr)
 		return;
 
-	/* do a quadratic interpolation of the three points around this peak */
-	/* XXX: there's no reason to believe the peaks are parabolic. */
-	shift_correction = 0.5 * (snr_0 - snr_2) / (snr_0 - 2 * snr_1 + snr_2);
-	stats->snr = snr_1 - 0.25 * (snr_0 - snr_2) * shift_correction;
+	/* do a weighted average of the three points around this peak */
+	shift_correction = (snr_2 - snr_0) / (snr_0 + snr_1 + snr_2);
+
+	stats->snr = snr_1;
 	stats->doppler = (shift + shift_correction) * bin_width;
 	stats->phase = phase;
 }
