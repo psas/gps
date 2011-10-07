@@ -28,6 +28,7 @@ struct signal_strength {
 	double snr;
 	double doppler;
 	double phase;
+	double clock_error;
 };
 
 /* G2 shift register delay for each PRN is specified in IS-GPS-200,
@@ -222,12 +223,9 @@ static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 	to[1] = imag;
 }
 
-static void demod(unsigned int sample_freq, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
+static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
 {
-	/* XXX: This fudge factor compensates receiver clock error, but
-	 * should not be necessary with a proper code tracking loop. */
-	const double clock_error_hack = 9.35;
-	const double samples_per_chip = sample_freq / (clock_error_hack + 1023e3 * (1 + doppler / 1575.42e6));
+	const double samples_per_chip = sample_freq / (clock_error + 1023e3 * (1 + doppler / 1575.42e6));
 	double phase_offset = 0;
 	unsigned int i;
 	int ready = 0;
@@ -281,7 +279,7 @@ static void update_stats(struct signal_strength *stats, double bin_width, int sh
 	stats->phase = phase;
 }
 
-static struct signal_strength check_satellite(unsigned int sample_freq, fftw_complex *data_fft, unsigned int data_fft_len, int sv)
+static struct signal_strength check_satellite(unsigned int sample_freq, fftw_complex *data_fft, unsigned int data_fft_len, fftw_complex *check, unsigned int check_len, int sv)
 {
 	struct signal_strength stats;
 	const unsigned int len = sample_freq / 1000;
@@ -294,10 +292,13 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	const int max_shift = 5000 * data_fft_len / sample_freq;
 	const double bin_width = (double) sample_freq / data_fft_len;
 	double snr_1 = 0, snr_2 = 0, best_phase_1 = 0;
+	double max_pwr, best_phase;
 	unsigned int i;
 	int shift;
 	fftw_plan fft = fftw_plan_dft_r2c_1d(len, ca_samples, ca_fft, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 	fftw_plan ifft = fftw_plan_dft_1d(len, prod, prod, FFTW_BACKWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+	fftw_complex *check_fft = fftw_malloc(sizeof(fftw_complex) * check_len);
+	fftw_plan check_plan = fftw_plan_dft_1d(check_len, check_fft, check_fft, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	for(i = 0; i < len; ++i)
 		ca_samples[i] = cacode((int) (i / samples_per_chip), sv) ? 1 : -1;
@@ -306,20 +307,12 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	fftw_destroy_plan(fft);
 
 	if(TRACE)
-	{
-		printf("# SV %d C/A code FFT\n", SV[sv].PRN);
-		for(i = 0; i < fft_len; ++i)
-			printf("%f\t%f\n", ca_fft[i][0], ca_fft[i][1]);
-		printf("\n");
-	}
-
-	if(TRACE)
 		printf("# SV %d correlation\n", SV[sv].PRN);
 	stats.snr = 0;
 	for(shift = -max_shift; shift <= max_shift; ++shift)
 	{
 		const double doppler = shift * bin_width;
-		double max_pwr = 0, tot_pwr = 0, best_phase = 0, snr;
+		double tot_pwr = 0, snr;
 		for(i = 0; i < len / 2; ++i)
 		{
 			complex_mul(prod[i], data_fft[(i * (data_fft_len / len) + shift + data_fft_len) % data_fft_len], ca_fft[i]);
@@ -328,6 +321,7 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 
 		fftw_execute(ifft);
 
+		max_pwr = best_phase = 0;
 		for(i = 0; i < len; ++i)
 		{
 			double pwr = prod[i][0] * prod[i][0] + prod[i][1] * prod[i][1];
@@ -355,6 +349,56 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	if(TRACE)
 		printf("\n");
 
+	/* Now estimate sample-clock error using a second, shorter,
+	 * training pass.
+	 *
+	 * The quick extra pass provides two benefits:
+	 *
+	 * - Initializes the code-tracking loop with an estimate of how
+	 *   much the receiver's clock is drifting relative to the
+	 *   atomic clocks on the GPS satellites.
+	 *
+	 * - Provides a very good heuristic about whether there's
+	 *   actually a satellite there to track.
+	 */
+	for(i = 0; i < check_len; ++i)
+	{
+		fftw_complex tmp;
+		tmp[0] = cos(-stats.doppler * 2 * M_PI * i / sample_freq);
+		tmp[1] = sin(-stats.doppler * 2 * M_PI * i / sample_freq);
+		complex_mul(check_fft[i], check[i], tmp);
+	}
+
+	fftw_execute(check_plan);
+	fftw_destroy_plan(check_plan);
+
+	for(i = 0; i < check_len; ++i)
+		check_fft[i][1] = -check_fft[i][1];
+	for(i = 0; i < len / 2; ++i)
+	{
+		complex_mul(prod[i], check_fft[i * (check_len / len)], ca_fft[i]);
+		complex_conj_mul(prod[len - 1 - i], check_fft[(len - 1 - i) * (check_len / len)], ca_fft[i + 1]);
+	}
+
+	fftw_execute(ifft);
+
+	max_pwr = best_phase = 0;
+	for(i = 0; i < len; ++i)
+	{
+		double pwr = prod[i][0] * prod[i][0] + prod[i][1] * prod[i][1];
+		double phase = i * (1023.0 / len);
+		if(pwr > max_pwr)
+		{
+			max_pwr = pwr;
+			best_phase = phase;
+		}
+	}
+
+	stats.clock_error = (best_phase - stats.phase) * sample_freq / data_fft_len - 1023e3 * (1 + stats.doppler / 1575.42e6);
+	const double ambig = 1023.0 * sample_freq / data_fft_len;
+	stats.clock_error -= lround(stats.clock_error / ambig) * ambig;
+
+	fftw_free(check_fft);
 	fftw_destroy_plan(ifft);
 	fftw_free(ca_buf);
 	fftw_free(prod);
@@ -364,13 +408,18 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 int main()
 {
 	const unsigned int sample_freq = 4000000;
-	unsigned int training_len = sample_freq * 20 / 1000;
+	unsigned int training1_len = sample_freq * 20 / 1000;
+	unsigned int training2_len = sample_freq * 5 / 1000;
+	unsigned int training_len = training1_len + training2_len;
 	fftw_complex *training = fftw_malloc(sizeof(fftw_complex) * training_len);
+	fftw_complex *training2 = training + training1_len;
 	unsigned int data_len = sample_freq * 2;
 	fftw_complex *data = fftw_malloc(sizeof(fftw_complex) * data_len);
 	struct signal_strength signals[sizeof SV / sizeof *SV];
 	int i;
-	fftw_plan training_plan = fftw_plan_dft_1d(training_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+	double clock_error_sum = 0;
+	unsigned int visible_satellites = 0;
+	fftw_plan training_plan = fftw_plan_dft_1d(training1_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	if(read_samples(training, training_len) < training_len)
 	{
@@ -380,30 +429,31 @@ int main()
 	fftw_execute(training_plan);
 	fftw_destroy_plan(training_plan);
 
-	if(TRACE)
-		printf("# training FFT\n");
-	for(i = 0; i < training_len; ++i)
+	for(i = 0; i < training1_len; ++i)
 	{
-		if(TRACE)
-			printf("%f\t%f\n", training[i][0], training[i][1]);
 		/* precompute the complex conjugate of the training FFT */
 		training[i][1] = -training[i][1];
 	}
-	if(TRACE)
-		printf("\n");
 
 	data_len = read_samples(data, data_len);
 
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
-	{
-		signals[i] = check_satellite(sample_freq, training, training_len, i);
-		demod(sample_freq, data, data_len, i, signals[i].doppler, signals[i].phase, training_len);
-	}
+		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i);
 
-	printf("# SV, S/N ratio, doppler shift (Hz), phase (chips)\n");
+	printf("# SV, S/N ratio, doppler shift (Hz), code phase (chips), sample clock error (chips/s)\n");
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
-		printf("%d\t%f\t%f\t%f\n", SV[i].PRN, signals[i].snr, signals[i].doppler, signals[i].phase);
+		if(fabs(signals[i].clock_error) < 30)
+		{
+			printf("%d\t%f\t%f\t%f\t%f\n", SV[i].PRN, signals[i].snr, signals[i].doppler, signals[i].phase, signals[i].clock_error);
+			clock_error_sum += signals[i].clock_error;
+			++visible_satellites;
+		}
+	printf("# %u satellites in view; average clock error %f chips/s\n", visible_satellites, clock_error_sum / visible_satellites);
 	printf("\n");
+
+	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
+		if(fabs(signals[i].clock_error) < 30)
+			demod(sample_freq, clock_error_sum / visible_satellites, data, data_len, i, signals[i].doppler, signals[i].phase, training_len);
 
 	fftw_free(data);
 	fftw_free(training);
