@@ -207,14 +207,18 @@ static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 
 static void complex_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 {
-	to[0] = a[0] * b[0] - a[1] * b[1];
-	to[1] = a[1] * b[0] + a[0] * b[1];
+	double real = a[0] * b[0] - a[1] * b[1];
+	double imag = a[1] * b[0] + a[0] * b[1];
+	to[0] = real;
+	to[1] = imag;
 }
 
 static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 {
-	to[0] = a[0] * b[0] + a[1] * b[1];
-	to[1] = a[1] * b[0] - a[0] * b[1];
+	double real = a[0] * b[0] + a[1] * b[1];
+	double imag = a[1] * b[0] - a[0] * b[1];
+	to[0] = real;
+	to[1] = imag;
 }
 
 static void demod(unsigned int sample_freq, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
