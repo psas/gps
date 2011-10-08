@@ -237,6 +237,7 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 	int ready = 0;
 	fftw_complex nco, rotation_per_sample;
 	fftw_complex prompt_sum = { 0, 0 };
+	double early_sum = 0, late_sum = 0;
 
 	nco[0] = 1;
 	nco[1] = 0;
@@ -252,9 +253,13 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 		fftw_complex result;
 		int chip = (int) code_phase % 1023;
 		int prompt = cacode(chip, sv) ? 1 : -1;
+		int early = cacode((int) (code_phase - 0.5) % 1023, sv) ? 1 : -1;
+		int late = cacode((int) (code_phase + 0.5) % 1023, sv) ? 1 : -1;
 		complex_mul(result, data[i], nco);
 		prompt_sum[0] += result[0] * prompt;
 		prompt_sum[1] += result[1] * prompt;
+		early_sum += result[0] * early;
+		late_sum += result[0] * late;
 
 		complex_mul(nco, nco, rotation_per_sample);
 		code_phase += chips_per_sample;
@@ -265,7 +270,7 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 			ready = 1;
 		else if(ready)
 		{
-			double phase_error = 0;
+			double phase_error = 0, code_phase_error = 0;
 			if(fabs(prompt_sum[0]) >= 1)
 			{
 				fftw_complex tmp;
@@ -283,9 +288,22 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 				rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
 				chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
 			}
+
+			if(fabs(early_sum) >= 1 || fabs(late_sum) >= 1)
+			{
+				code_phase_error = 0.5 - fabs(early_sum) / (fabs(early_sum) + fabs(late_sum));
+				code_phase += code_phase_error / 10;
+			}
+
 			if(TRACE)
-				printf("%f\t%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_error, doppler);
+				printf("%f\t%f\t%f\t%f\t%f\t%f\n",
+					i * 1000.0 / sample_freq,
+					prompt_sum[0], prompt_sum[1],
+					phase_error, doppler,
+					code_phase_error);
+
 			prompt_sum[0] = prompt_sum[1] = 0;
+			early_sum = late_sum = 0;
 			ready = 0;
 
 			/* Keep code phase in a reasonable range so it
