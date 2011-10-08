@@ -232,7 +232,7 @@ static void normalize(fftw_complex v)
 
 static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
 {
-	const double chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
+	double chips_per_sample;
 	unsigned int i;
 	int ready = 0;
 	fftw_complex nco, rotation_per_sample;
@@ -242,6 +242,7 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 	nco[1] = 0;
 	rotation_per_sample[0] = cos(-doppler * 2 * M_PI / sample_freq);
 	rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
+	chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
 	code_phase += delay_samples * chips_per_sample;
 
 	if(TRACE)
@@ -276,9 +277,14 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 				/* Keep nco unit-length so it's only a
 				 * rotation. */
 				normalize(nco);
+
+				doppler += phase_error * (1000 / (2 * M_PI) / 100);
+				rotation_per_sample[0] = cos(-doppler * 2 * M_PI / sample_freq);
+				rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
+				chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
 			}
 			if(TRACE)
-				printf("%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_error);
+				printf("%f\t%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_error, doppler);
 			prompt_sum[0] = prompt_sum[1] = 0;
 			ready = 0;
 
