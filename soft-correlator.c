@@ -223,28 +223,39 @@ static void complex_conj_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 	to[1] = imag;
 }
 
+static void normalize(fftw_complex v)
+{
+	double mag = sqrt(v[0] * v[0] + v[1] * v[1]);
+	v[0] /= mag;
+	v[1] /= mag;
+}
+
 static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
 {
 	const double chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
-	double phase = 0;
 	unsigned int i;
 	int ready = 0;
+	fftw_complex nco, rotation_per_sample;
 	fftw_complex prompt_sum = { 0, 0 };
+
+	nco[0] = 1;
+	nco[1] = 0;
+	rotation_per_sample[0] = cos(-doppler * 2 * M_PI / sample_freq);
+	rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
 	code_phase += delay_samples * chips_per_sample;
+
 	if(TRACE)
 		printf("# navigation data from sv %d with Doppler shift %f\n", SV[sv].PRN, doppler);
 	for(i = 0; i < data_len; ++i)
 	{
-		fftw_complex nco, result;
+		fftw_complex result;
 		int chip = (int) code_phase % 1023;
 		int prompt = cacode(chip, sv) ? 1 : -1;
-		nco[0] = cos(phase);
-		nco[1] = sin(phase);
 		complex_mul(result, data[i], nco);
 		prompt_sum[0] += result[0] * prompt;
 		prompt_sum[1] += result[1] * prompt;
 
-		phase -= doppler * 2 * M_PI / sample_freq;
+		complex_mul(nco, nco, rotation_per_sample);
 		code_phase += chips_per_sample;
 
 		/* Sample the data signal at rising edge of the start of
@@ -256,16 +267,23 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 			double phase_error = 0;
 			if(fabs(prompt_sum[0]) >= 1)
 			{
+				fftw_complex tmp;
 				phase_error = atan(prompt_sum[1] / prompt_sum[0]);
-				phase -= phase_error;
+				tmp[0] = cos(-phase_error);
+				tmp[1] = sin(-phase_error);
+				complex_mul(nco, nco, tmp);
+
+				/* Keep nco unit-length so it's only a
+				 * rotation. */
+				normalize(nco);
 			}
 			if(TRACE)
 				printf("%f\t%f\t%f\t%f\n", i * 1000.0 / sample_freq, prompt_sum[0], prompt_sum[1], phase_error);
 			prompt_sum[0] = prompt_sum[1] = 0;
 			ready = 0;
 
-			/* keep phases in a reasonable range */
-			phase -= (int) (phase / (2 * M_PI)) * 2 * M_PI;
+			/* Keep code phase in a reasonable range so it
+			 * doesn't lose precision on the low bits. */
 			code_phase -= 1023;
 		}
 	}
