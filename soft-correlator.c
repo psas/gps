@@ -343,7 +343,7 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	double *ca_samples = ca_buf;
 	fftw_complex *ca_fft = ca_buf;
 	const double samples_per_chip = sample_freq / 1023e3;
-	const int max_shift = 5000 * data_fft_len / sample_freq;
+	const int max_shift = 15000 * data_fft_len / sample_freq;
 	const double bin_width = (double) sample_freq / data_fft_len;
 	double snr_1 = 0, snr_2 = 0, best_phase_1 = 0;
 	double max_pwr, best_phase;
