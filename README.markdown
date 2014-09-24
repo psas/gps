@@ -19,9 +19,11 @@ Mirrored at: <http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html>
 
 These datafile should have the following sats in them:
 
- - `gps_4m_complex.dat`: 0008 UTC on 26 Mar 2005.  SV 1, 3, 14, 15, 19, 21, 22, 25 and WAAS 47
- - `gps_4m_complex.21Apr2005.dat`: 0522 UTC on 21 Apr 2005.  SV 3, 8, 13, 16, 19, 20, 23, 27 and WAAS 35 and 47
- - `gps_4msps_complex.12Sep2005.dat`: 60 second capture.  Snapshot contains at least one set of ephemeris data.
+ File Name                         | Capture Info            | Sats, remarks
+ --------------------------------- | ----------------------- | -------------
+ `gps_4m_complex.dat`              | 0008 UTC on 26 Mar 2005 | SV 1, 3, 14, 15, 19, 21, 22, 25 and WAAS 47
+ `gps_4m_complex.21Apr2005.dat`    | 0522 UTC on 21 Apr 2005 | SV 3, 8, 13, 16, 19, 20, 23, 27 and WAAS 35 and 47
+ `gps_4msps_complex.12Sep2005.dat` | A 60 second capture     | Snapshot contains at least one set of ephemeris data.
 
 For another source of raw GPS samples, try <http://kom.aau.dk/project/softgps/data.php>.
 
