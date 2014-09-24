@@ -196,10 +196,10 @@ static int cacode(int chip, int sv)
 static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 {
 	unsigned int i;
-	float buf[2];
+	int16_t buf[2];
 	for(i = 0; i < data_len; ++i)
 	{
-		if(!fread(buf, sizeof(float), 2, stdin))
+		if(!fread(buf, sizeof(int16_t), 2, stdin))
 			break;
 		data[i][0] = buf[0];
 		data[i][1] = buf[1];
