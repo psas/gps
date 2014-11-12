@@ -27,8 +27,8 @@ These datafile should have the following sats in them:
 
 For another source of raw GPS samples, try:
 - <http://kom.aau.dk/project/softgps/data.php>.
-- <http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download> (1.2GB from http://www.gnss-sdr.org/ project)
-- <http://setiquest.sigblips.com/download/2010-10-08-GPS-27_1575_1/> (7+GB from SetiQuest SigBlips archive)
+- <http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download> (1.2GB) From http://www.gnss-sdr.org/ project.
+- <http://setiquest.sigblips.com/download/2010-10-08-GPS-27_1575_1/> (7+GB) From setiQuest SigBlips archive.  See http://www.acasper.org/2011/11/07/gps-signal-analysis/ for analysis of this data.
 
 ## Build
 
