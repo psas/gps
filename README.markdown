@@ -25,8 +25,10 @@ These datafile should have the following sats in them:
  `gps_4m_complex.21Apr2005.dat`    | 0522 UTC on 21 Apr 2005 | SV 3, 8, 13, 16, 19, 20, 23, 27 and WAAS 35 and 47
  `gps_4msps_complex.12Sep2005.dat` | A 60 second capture     | Snapshot contains at least one set of ephemeris data.
 
-For another source of raw GPS samples, try <http://kom.aau.dk/project/softgps/data.php>.
-
+For another source of raw GPS samples, try:
+- <http://kom.aau.dk/project/softgps/data.php>.
+- <http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download> (1.2GB from http://www.gnss-sdr.org/ project)
+- <http://setiquest.sigblips.com/download/2010-10-08-GPS-27_1575_1/> (7+GB from SetiQuest SigBlips archive)
 
 ## Build
 
