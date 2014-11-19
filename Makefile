@@ -1,4 +1,4 @@
 CFLAGS = -g -O3 -Wall
-LDFLAGS = -lfftw3 -lm
+LDLIBS = -lm -lfftw3
 
 all: soft-correlator
