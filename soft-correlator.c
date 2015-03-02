@@ -32,6 +32,11 @@ struct signal_strength {
 	double clock_error;
 };
 
+struct nco {
+	fftw_complex current;
+	fftw_complex rate;
+};
+
 /* G2 shift register delay for each PRN is specified in IS-GPS-200,
  * table 3-I. It's stored time-reversed here: the spec is for the number
  * of chips to delay G2's output before using it, but we want to know
@@ -194,35 +199,6 @@ static int cacode(int chip, int sv)
 	return ca_code_states[chip].G1 ^ ca_code_states[g2chip].G2;
 }
 
-static double sign_magnitude(unsigned sign, unsigned magnitude)
-{
-	double value = magnitude ? 1 : 1.0/3.0;
-	return sign ? -value : value;
-}
-
-static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
-{
-	unsigned int i = 0;
-	while(i < data_len)
-	{
-		uint8_t buf;
-		unsigned int j;
-		if(fread(&buf, sizeof(uint8_t), 1, stdin) != 1)
-			break;
-		for(j = 0; j < 2; ++j)
-		{
-			/* Each nibble contains, in order from MSB to LSB:
-			 * - quadrature-phase (imaginary) part followed by in-phase (real) part
-			 * - older sample followed by newer sample */
-			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
-			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
-			if(++i >= data_len)
-				break;
-		}
-	}
-	return i;
-}
-
 static void complex_mul(fftw_complex to, fftw_complex a, fftw_complex b)
 {
 	double real = a[0] * b[0] - a[1] * b[1];
@@ -246,19 +222,67 @@ static void normalize(fftw_complex v)
 	v[1] /= mag;
 }
 
+static void nco_init(struct nco *nco)
+{
+	nco->current[0] = 1;
+	nco->current[1] = 0;
+	nco->rate[0] = 1;
+	nco->rate[1] = 0;
+}
+
+static void nco_set_rate(struct nco *nco, int sample_rate, double frequency)
+{
+	nco->rate[0] = cos(frequency * 2 * M_PI / sample_rate);
+	nco->rate[1] = sin(frequency * 2 * M_PI / sample_rate);
+}
+
+static void nco_next(struct nco *nco)
+{
+	complex_mul(nco->current, nco->current, nco->rate);
+}
+
+static double sign_magnitude(unsigned sign, unsigned magnitude)
+{
+	double value = magnitude ? 1 : 1.0/3.0;
+	return sign ? -value : value;
+}
+
+static unsigned int read_samples(struct nco *center_freq, fftw_complex *data, unsigned int data_len)
+{
+	unsigned int i = 0;
+	while(i < data_len)
+	{
+		uint8_t buf;
+		unsigned int j;
+		if(fread(&buf, sizeof(uint8_t), 1, stdin) != 1)
+			break;
+		for(j = 0; j < 2; ++j)
+		{
+			/* Each nibble contains, in order from MSB to LSB:
+			 * - quadrature-phase (imaginary) part followed by in-phase (real) part
+			 * - older sample followed by newer sample */
+			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
+			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
+			complex_mul(data[i], data[i], center_freq->current);
+			nco_next(center_freq);
+			if(++i >= data_len)
+				break;
+		}
+	}
+	return i;
+}
+
 static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
 {
 	double chips_per_sample;
 	unsigned int i;
 	int ready = 0;
-	fftw_complex nco, rotation_per_sample;
+	struct nco nco;
 	fftw_complex prompt_sum = { 0, 0 };
 	double early_sum = 0, late_sum = 0;
 
-	nco[0] = 1;
-	nco[1] = 0;
-	rotation_per_sample[0] = cos(-doppler * 2 * M_PI / sample_freq);
-	rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
+	nco_init(&nco);
+	nco_set_rate(&nco, sample_freq, -doppler);
 	chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
 	code_phase += delay_samples * chips_per_sample;
 
@@ -271,13 +295,13 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 		int prompt = cacode(chip, sv) ? 1 : -1;
 		int early = cacode((int) (code_phase - 0.5) % 1023, sv) ? 1 : -1;
 		int late = cacode((int) (code_phase + 0.5) % 1023, sv) ? 1 : -1;
-		complex_mul(result, data[i], nco);
+		complex_mul(result, data[i], nco.current);
 		prompt_sum[0] += result[0] * prompt;
 		prompt_sum[1] += result[1] * prompt;
 		early_sum += result[0] * early;
 		late_sum += result[0] * late;
 
-		complex_mul(nco, nco, rotation_per_sample);
+		nco_next(&nco);
 		code_phase += chips_per_sample;
 
 		/* Sample the data signal at rising edge of the start of
@@ -293,15 +317,14 @@ static void demod(unsigned int sample_freq, double clock_error, fftw_complex *da
 				phase_error = atan(prompt_sum[1] / prompt_sum[0]);
 				tmp[0] = cos(-phase_error);
 				tmp[1] = sin(-phase_error);
-				complex_mul(nco, nco, tmp);
+				complex_mul(nco.current, nco.current, tmp);
 
 				/* Keep nco unit-length so it's only a
 				 * rotation. */
-				normalize(nco);
+				normalize(nco.current);
 
 				doppler += phase_error * (1000 / (2 * M_PI) / 100);
-				rotation_per_sample[0] = cos(-doppler * 2 * M_PI / sample_freq);
-				rotation_per_sample[1] = sin(-doppler * 2 * M_PI / sample_freq);
+				nco_set_rate(&nco, sample_freq, -doppler);
 				chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
 			}
 
@@ -478,6 +501,7 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 int main()
 {
 	const unsigned int sample_freq = 4096000;
+	struct nco center_freq;
 	unsigned int training1_len = sample_freq * 20 / 1000;
 	unsigned int training2_len = sample_freq * 5 / 1000;
 	unsigned int training_len = training1_len + training2_len;
@@ -491,7 +515,10 @@ int main()
 	unsigned int visible_satellites = 0;
 	fftw_plan training_plan = fftw_plan_dft_1d(training1_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
-	if(read_samples(training, training_len) < training_len)
+	nco_init(&center_freq);
+	nco_set_rate(&center_freq, sample_freq, -2048000);
+
+	if(read_samples(&center_freq, training, training_len) < training_len)
 	{
 		fprintf(stderr, "couldn't read %u input samples needed for training\n", training_len);
 		exit(EXIT_FAILURE);
@@ -505,7 +532,7 @@ int main()
 		training[i][1] = -training[i][1];
 	}
 
-	data_len = read_samples(data, data_len);
+	data_len = read_samples(&center_freq, data, data_len);
 
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
 		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i);
