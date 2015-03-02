@@ -19,6 +19,7 @@
 
 #include <fftw3.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -193,16 +194,31 @@ static int cacode(int chip, int sv)
 	return ca_code_states[chip].G1 ^ ca_code_states[g2chip].G2;
 }
 
+static double sign_magnitude(unsigned sign, unsigned magnitude)
+{
+	double value = magnitude ? 1 : 1.0/3.0;
+	return sign ? -value : value;
+}
+
 static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 {
-	unsigned int i;
-	int16_t buf[2];
-	for(i = 0; i < data_len; ++i)
+	unsigned int i = 0;
+	while(i < data_len)
 	{
-		if(!fread(buf, sizeof(int16_t), 2, stdin))
+		uint8_t buf;
+		unsigned int j;
+		if(fread(&buf, sizeof(uint8_t), 1, stdin) != 1)
 			break;
-		data[i][0] = buf[0];
-		data[i][1] = buf[1];
+		for(j = 0; j < 2; ++j)
+		{
+			/* Each nibble contains, in order from MSB to LSB:
+			 * - quadrature-phase (imaginary) part followed by in-phase (real) part
+			 * - older sample followed by newer sample */
+			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
+			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
+			if(++i >= data_len)
+				break;
+		}
 	}
 	return i;
 }
@@ -461,7 +477,7 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 
 int main()
 {
-	const unsigned int sample_freq = 4000000;
+	const unsigned int sample_freq = 4096000;
 	unsigned int training1_len = sample_freq * 20 / 1000;
 	unsigned int training2_len = sample_freq * 5 / 1000;
 	unsigned int training_len = training1_len + training2_len;
