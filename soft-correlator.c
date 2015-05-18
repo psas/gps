@@ -259,10 +259,10 @@ static unsigned int read_samples(struct nco *center_freq, fftw_complex *data, un
 		for(j = 0; j < 2; ++j)
 		{
 			/* Each nibble contains, in order from MSB to LSB:
-			 * - quadrature-phase (imaginary) part followed by in-phase (real) part
+			 * - in-phase (real) part followed by quadrature-phase (imaginary) part
 			 * - older sample followed by newer sample */
-			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
-			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
+			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
+			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
 			complex_mul(data[i], data[i], center_freq->current);
 			nco_next(center_freq);
 			if(++i >= data_len)
@@ -500,9 +500,9 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 
 int main()
 {
-	const unsigned int sample_freq = 4096000;
+	const unsigned int sample_freq = 4092000;
 	struct nco center_freq;
-	unsigned int training1_len = sample_freq * 20 / 1000;
+	unsigned int training1_len = sample_freq * 10 / 1000;
 	unsigned int training2_len = sample_freq * 5 / 1000;
 	unsigned int training_len = training1_len + training2_len;
 	fftw_complex *training = fftw_malloc(sizeof(fftw_complex) * training_len);
@@ -516,7 +516,7 @@ int main()
 	fftw_plan training_plan = fftw_plan_dft_1d(training1_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	nco_init(&center_freq);
-	nco_set_rate(&center_freq, sample_freq, -2048000);
+	nco_set_rate(&center_freq, sample_freq, -1950000);
 
 	if(read_samples(&center_freq, training, training_len) < training_len)
 	{
