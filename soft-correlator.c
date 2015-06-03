@@ -247,6 +247,12 @@ static double sign_magnitude(unsigned sign, unsigned magnitude)
 	return sign ? -value : value;
 }
 
+unsigned samplecount;
+unsigned isigncount;
+unsigned imagcount;
+unsigned qsigncount;
+unsigned qmagcount;
+
 static unsigned int read_samples(struct nco *center_freq, fftw_complex *data, unsigned int data_len)
 {
 	unsigned int i = 0;
@@ -261,8 +267,19 @@ static unsigned int read_samples(struct nco *center_freq, fftw_complex *data, un
 			/* Each nibble contains, in order from MSB to LSB:
 			 * - in-phase (real) part followed by quadrature-phase (imaginary) part
 			 * - older sample followed by newer sample */
-			data[i][0] = sign_magnitude((buf >> (8 - j * 4 - 1)) & 1, (buf >> (8 - j * 4 - 2)) & 1);
-			data[i][1] = sign_magnitude((buf >> (8 - j * 4 - 3)) & 1, (buf >> (8 - j * 4 - 4)) & 1);
+			unsigned imag  = (buf >> (8 - j * 4 - 1)) & 1;
+			unsigned isign = (buf >> (8 - j * 4 - 2)) & 1;
+			unsigned qmag  = (buf >> (8 - j * 4 - 3)) & 1;
+			unsigned qsign = (buf >> (8 - j * 4 - 4)) & 1;
+			data[i][0] = sign_magnitude(isign, imag);
+			data[i][1] = sign_magnitude(qsign, qmag);
+
+			++samplecount;
+			if(isign) ++isigncount;
+			if(imag)  ++imagcount;
+			if(qsign) ++qsigncount;
+			if(qmag)  ++qmagcount;
+
 			complex_mul(data[i], data[i], center_freq->current);
 			nco_next(center_freq);
 			if(++i >= data_len)
@@ -533,6 +550,13 @@ int main()
 	}
 
 	data_len = read_samples(&center_freq, data, data_len);
+
+	printf("# frequency of 1-bits: i-sign %.1f%%, i-mag %.1f%%, q-sign %.1f%%, q-mag %.1f%%\n",
+		100.0 * isigncount / samplecount,
+		100.0 * imagcount / samplecount,
+		100.0 * qsigncount / samplecount,
+		100.0 * qmagcount / samplecount
+		);
 
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
 		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i);
