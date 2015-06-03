@@ -564,10 +564,10 @@ int main()
 	printf("# SV, S/N ratio, doppler shift (Hz), code phase (chips), sample clock error (chips/s)\n");
 	for(i = 0; i < (sizeof SV / sizeof *SV); ++i)
 	{
-		printf("%c %d\t%f\t%f\t%f\t%f\n", fabs(signals[i].clock_error) < 30 ? '*' : ' ', SV[i].PRN,
-			signals[i].snr, signals[i].doppler, signals[i].phase, signals[i].clock_error);
 		if(fabs(signals[i].clock_error) < 30)
 		{
+			printf("%c %d\t%f\t%f\t%f\t%f\n", fabs(signals[i].clock_error) < 30 ? '*' : ' ', SV[i].PRN,
+				signals[i].snr, signals[i].doppler, signals[i].phase, signals[i].clock_error);
 			clock_error_sum += signals[i].clock_error;
 			++visible_satellites;
 		}
