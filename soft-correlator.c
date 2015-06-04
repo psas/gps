@@ -533,7 +533,7 @@ int main()
 	fftw_plan training_plan = fftw_plan_dft_1d(training1_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	nco_init(&center_freq);
-	nco_set_rate(&center_freq, sample_freq, -1950000);
+	nco_set_rate(&center_freq, sample_freq, 0);
 
 	if(read_samples(&center_freq, training, training_len) < training_len)
 	{
