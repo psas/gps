@@ -1,4 +1,5 @@
 *.o
+make-prn
 read-max
 read-s16
 soft-correlator
