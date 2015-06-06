@@ -274,9 +274,16 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	return stats;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-	const unsigned int sample_freq = 4092000;
+	if(argc <= 1)
+	{
+		fprintf(stderr, "usage: %s sample-freq\n", argv[0]);
+		exit(1);
+	}
+
+	const unsigned int sample_freq = atoi(argv[1]);
+
 	unsigned int training1_len = sample_freq * 10 / 1000;
 	unsigned int training2_len = sample_freq * 5 / 1000;
 	unsigned int training_len = training1_len + training2_len;
