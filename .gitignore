@@ -1,4 +1,5 @@
 *.o
 read-max
+read-s16
 soft-correlator
 *.dat
