@@ -1,8 +1,0 @@
-#!/bin/sh
-for f in "$@"; do
-	echo -n ' *** '
-	basename "$f"
-	dd if="$f" status=none bs=2048 skip=5 | ./soft-correlator
-	dd if="$f" status=none bs=2048 skip=20 | ./soft-correlator
-	dd if="$f" status=none bs=2048 skip=35 | ./soft-correlator
-done
