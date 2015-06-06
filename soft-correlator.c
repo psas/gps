@@ -34,50 +34,16 @@ struct signal_strength {
 	double clock_error;
 };
 
-static double sign_magnitude(unsigned sign, unsigned magnitude)
-{
-	double value = magnitude ? 1 : 1.0/3.0;
-	return sign ? -value : value;
-}
-
-unsigned samplecount;
-unsigned isigncount;
-unsigned imagcount;
-unsigned qsigncount;
-unsigned qmagcount;
-
-static unsigned int read_samples(struct nco *center_freq, fftw_complex *data, unsigned int data_len)
+static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 {
 	unsigned int i = 0;
-	while(i < data_len)
+	for(i = 0; i < data_len; ++i)
 	{
-		uint8_t buf;
-		unsigned int j;
-		if(fread(&buf, sizeof(uint8_t), 1, stdin) != 1)
+		float buf[2];
+		if(fread(buf, sizeof(float), 2, stdin) != 2)
 			break;
-		for(j = 0; j < 2; ++j)
-		{
-			/* Each nibble contains, in order from MSB to LSB:
-			 * - in-phase (real) part followed by quadrature-phase (imaginary) part
-			 * - older sample followed by newer sample */
-			unsigned imag  = (buf >> (8 - j * 4 - 1)) & 1;
-			unsigned isign = (buf >> (8 - j * 4 - 2)) & 1;
-			unsigned qmag  = (buf >> (8 - j * 4 - 3)) & 1;
-			unsigned qsign = (buf >> (8 - j * 4 - 4)) & 1;
-			data[i][0] = sign_magnitude(isign, imag);
-			data[i][1] = sign_magnitude(qsign, qmag);
-
-			++samplecount;
-			if(isign) ++isigncount;
-			if(imag)  ++imagcount;
-			if(qsign) ++qsigncount;
-			if(qmag)  ++qmagcount;
-
-			complex_mul(data[i], data[i], center_freq->current);
-			nco_next(center_freq);
-			if(++i >= data_len)
-				break;
-		}
+		data[i][0] = buf[0];
+		data[i][1] = buf[1];
 	}
 	return i;
 }
@@ -311,7 +277,6 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 int main()
 {
 	const unsigned int sample_freq = 4092000;
-	struct nco center_freq;
 	unsigned int training1_len = sample_freq * 10 / 1000;
 	unsigned int training2_len = sample_freq * 5 / 1000;
 	unsigned int training_len = training1_len + training2_len;
@@ -325,10 +290,7 @@ int main()
 	unsigned int visible_satellites = 0;
 	fftw_plan training_plan = fftw_plan_dft_1d(training1_len, training, training, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
-	nco_init(&center_freq);
-	nco_set_rate(&center_freq, sample_freq, 0);
-
-	if(read_samples(&center_freq, training, training_len) < training_len)
+	if(read_samples(training, training_len) < training_len)
 	{
 		fprintf(stderr, "couldn't read %u input samples needed for training\n", training_len);
 		exit(EXIT_FAILURE);
@@ -342,14 +304,7 @@ int main()
 		training[i][1] = -training[i][1];
 	}
 
-	data_len = read_samples(&center_freq, data, data_len);
-
-	printf("# frequency of 1-bits: i-sign %.1f%%, i-mag %.1f%%, q-sign %.1f%%, q-mag %.1f%%\n",
-		100.0 * isigncount / samplecount,
-		100.0 * imagcount / samplecount,
-		100.0 * qsigncount / samplecount,
-		100.0 * qmagcount / samplecount
-		);
+	data_len = read_samples(data, data_len);
 
 	for(i = 0; i < MAX_SV; ++i)
 		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i + 1);
