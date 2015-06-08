@@ -283,6 +283,16 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	return stats;
 }
 
+static int is_present(const struct signal_strength *signal)
+{
+	/* S/N ratio of about 12.79 dB-Hz is the lowest I've seen that
+	 * rules out all undetectable signals I've encountered in test
+	 * data sets. It isn't based on any reasoning from first
+	 * principles, it just seems to work across a wide range of
+	 * source data. */
+	return signal->snr >= 19;
+}
+
 int main(int argc, char **argv)
 {
 	if(argc <= 1)
@@ -325,13 +335,13 @@ int main(int argc, char **argv)
 	for(i = 0; i < MAX_SV; ++i)
 		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i + 1);
 
-	printf("# SV, S/N ratio, doppler shift (Hz), code phase (chips), sample clock error (chips/s)\n");
+	printf("# SV, S/N (dB-Hz), doppler shift (Hz), code phase (chips), sample clock error (chips/s)\n");
 	for(i = 0; i < MAX_SV; ++i)
 	{
-		if(fabs(signals[i].clock_error) < 30)
+		if(is_present(&signals[i]))
 		{
-			printf("%c %d\t%f\t%f\t%f\t%f\n", fabs(signals[i].clock_error) < 30 ? '*' : ' ', i + 1,
-				signals[i].snr, signals[i].doppler, signals[i].phase, signals[i].clock_error);
+			printf("%c %d\t%f\t%f\t%f\t%f\n", is_present(&signals[i]) ? '*' : ' ', i + 1,
+				10 * log10(signals[i].snr), signals[i].doppler, signals[i].phase, signals[i].clock_error);
 			clock_error_sum += signals[i].clock_error;
 			++visible_satellites;
 		}
@@ -340,7 +350,7 @@ int main(int argc, char **argv)
 	printf("\n");
 
 	for(i = 0; i < MAX_SV; ++i)
-		if(fabs(signals[i].clock_error) < 30)
+		if(is_present(&signals[i]))
 			demod(sample_freq, clock_error_sum / visible_satellites, data, data_len, i + 1, signals[i].doppler, signals[i].phase, training_len);
 
 	fftw_free(data);
