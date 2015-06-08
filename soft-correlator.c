@@ -169,8 +169,17 @@ static struct signal_strength check_satellite(unsigned int sample_freq, fftw_com
 	fftw_complex *check_fft = fftw_malloc(sizeof(fftw_complex) * check_len);
 	fftw_plan check_plan = fftw_plan_dft_1d(check_len, check_fft, check_fft, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
+	/* I think each forward FFT and the inverse FFT multiply by
+	 * another sqrt(len), so to get normalized power, we need to
+	 * divide by sqrt(len)^3. This doesn't change any of the
+	 * results, except when debugging the raw per-bin power. For the
+	 * normalization convention FFTW uses see
+	 * http://www.fftw.org/doc/The-1d-Discrete-Fourier-Transform-_0028DFT_0029.html
+	 */
+	const double normalize_dft = pow(len, 1.5);
+
 	for(i = 0; i < len; ++i)
-		ca_samples[i] = cacode((int) (i / samples_per_chip), sv) ? 1 : -1;
+		ca_samples[i] = (cacode((int) (i / samples_per_chip), sv) ? 1 : -1) / normalize_dft;
 
 	fftw_execute(fft);
 	fftw_destroy_plan(fft);
