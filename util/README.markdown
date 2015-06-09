@@ -1,12 +1,20 @@
 # GPS Utilities
 
-These might be helpful in debugging or understanding what is happeneing with GPS
+These might be helpful in debugging or understanding what is happening with GPS
 signals we're trying to track.
 
 ## `constellation.py`
 
-Draw the current local sky with aproximate GPS satellite positions above 5°
+This draws the current local sky with approximate GPS satellite positions above 5°
 altitude. Includes estimated Doppler shifts.
+
+### Requirements
+
+Install matplotlib (`sudo apt-get install python-matplotlib`, or `pip install matplotlib`) and [pyephem](http://rhodesmill.org/pyephem/) (`pip install pyephem`)
+
+Download GPS orbit data from [CelesTrak](https://celestrak.com/NORAD/elements/):
+
+    $ ./update-gps.sh
 
 ### Example:
 
