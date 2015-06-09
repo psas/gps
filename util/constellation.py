@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from math import pi
+from math import pi, radians, degrees
+import ephem
+import datetime
 
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['lines.linestyle'] = ':'
@@ -20,17 +22,26 @@ mpl.rcParams['patch.edgecolor'] = '#ffcc33'
 mpl.rcParams['font.size'] = 4.3
 
 
-sats = {'az': [], 'alt': []}
-def sat(SV, ax, sats):
+print "#SV, Doppler (Hz), Alt (deg), Az (deg)"
 
-    alt = 23
-    az = 1
-    dop = -3421
+sats = {'az': [], 'alt': [], 'color': []}
+def sat(ax, SV, az, alt, dop, sats):
+    dop = (dop/2.99792e8)*1.57542e9
+
+    print ', '.join([SV, "%5.0f"%dop, "%4.1f" % degrees(alt), "%5.1f" % degrees(az)])
+
+    az = az + pi
+    alt = degrees((pi/2.0) - alt)
 
     sats['az'].append(az)
     sats['alt'].append(alt)
+    if alt > 70:
+        sats['color'].append('#ffaa00')
+    else:
+        sats['color'].append('#ccff33')
 
-    plt.plot([az, az+0.5], [alt, alt+3], c="black")
+
+    #plt.plot([az, az+0.5], [alt, alt+3], c="black")
     ax.annotate(SV, xy=(az, alt),
         xytext=(0, -0.5), textcoords='offset points', horizontalalignment='center', verticalalignment='center',
         fontsize=6
@@ -45,11 +56,30 @@ def sat(SV, ax, sats):
 # make figure
 fig, ax = plt.subplots(1, 1, subplot_kw=dict(polar=True))
 
-# append sats
-sats = sat('8', ax, sats)
+
+location = ephem.Observer()
+location.lat = "45.0"
+location.long = "-122.0"
+location.elevation = 50
+now = datetime.datetime.utcnow()
+location.date = now
+
+with open('gps-ops.txt', 'r') as datafile:
+
+    while True:
+        try:
+            gps = ephem.readtle(datafile.readline(), datafile.readline(), datafile.readline())
+        except:
+            break
+
+        gps.compute(location)
+        if (gps.alt*1) > radians(5):
+            name = gps.name.split('PRN')[1].replace(')', '').strip()
+            
+            sats = sat(ax, name, gps.az*1, gps.alt*1, gps.range_velocity, sats)
 
 # plot sat dots
-plt.scatter(sats['az'], sats['alt'], s=120, c='#ccff22', alpha=0.8)
+plt.scatter(sats['az'], sats['alt'], s=120, c=sats['color'], alpha=0.8)
 
 # ticks
 plt.xticks([0, pi/2.0, pi, 3*pi/2.0], ['W','N','E','S'])
@@ -57,5 +87,4 @@ plt.yticks([0, 45, 70], ['z',u"45°",u"20°"])
 ax.set_ylim([0, 90])
 
 # save
-plt.savefig('test.png', dpi=120)
-plt.show()
+plt.savefig('constellation.png', dpi=120)
