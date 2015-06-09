@@ -12,3 +12,7 @@ read-max: read-max.o
 read-s16: read-s16.o
 
 make-prn: make-prn.o prn.o
+
+clean:
+	rm -f *.o
+	rm -f soft-correlator read-max read-s16 make-prn
