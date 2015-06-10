@@ -1,0 +1,16 @@
+apps
+CMakeFiles
+cmake_uninstall.cmake  
+docs             
+grc      
+install_manifest.txt  
+Makefile  
+python_compile_helper.py  
+swig
+CMakeCache.txt  
+cmake_install.cmake  
+CTestTestfile.cmake    
+get_swig_deps.py  
+include  
+lib                  
+python   
