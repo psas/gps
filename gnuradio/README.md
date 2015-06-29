@@ -1,5 +1,10 @@
+### GPS-carrier.grc
+Produce the sweeping sine-wave or transmit prn1 via HackRF
 
-### This is code for a GRC (gnuradio-companion) 'Out of Tree' module to read PSAS GPSv3 MAX2769 IQ File data
+### SETI-sample-tx.grc
+Transmit the setiQuest sigblips SV#27 sample
+
+### gr-psas is code for a GRC (gnuradio-companion) 'Out of Tree' module to read PSAS GPSv3 MAX2769 IQ File data
 
 #### The main action takes place in the gr-psas/build directory. There is a README.md there
 
