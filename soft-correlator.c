@@ -48,88 +48,6 @@ static unsigned int read_samples(fftw_complex *data, unsigned int data_len)
 	return i;
 }
 
-static void demod(unsigned int sample_freq, double clock_error, fftw_complex *data, unsigned int data_len, int sv, double doppler, double code_phase, unsigned int delay_samples)
-{
-	double chips_per_sample;
-	unsigned int i;
-	int ready = 0;
-	struct nco nco;
-	fftw_complex prompt_sum = { 0, 0 };
-	double early_sum = 0, late_sum = 0;
-
-	nco_init(&nco);
-	nco_set_rate(&nco, sample_freq, -doppler);
-	chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
-	code_phase += delay_samples * chips_per_sample;
-
-	if(TRACE)
-		printf("# navigation data from sv %d with Doppler shift %f\n", sv, doppler);
-	for(i = 0; i < data_len; ++i)
-	{
-		fftw_complex result;
-		int chip = (int) code_phase % 1023;
-		int prompt = cacode(chip, sv) ? 1 : -1;
-		int early = cacode((int) (code_phase - 0.5) % 1023, sv) ? 1 : -1;
-		int late = cacode((int) (code_phase + 0.5) % 1023, sv) ? 1 : -1;
-		complex_mul(result, data[i], nco.current);
-		prompt_sum[0] += result[0] * prompt;
-		prompt_sum[1] += result[1] * prompt;
-		early_sum += result[0] * early;
-		late_sum += result[0] * late;
-
-		nco_next(&nco);
-		code_phase += chips_per_sample;
-
-		/* Sample the data signal at rising edge of the start of
-		 * the code sequence. */
-		if(chip != 0)
-			ready = 1;
-		else if(ready)
-		{
-			double phase_error = 0, code_phase_error = 0;
-			if(fabs(prompt_sum[0]) >= 1)
-			{
-				fftw_complex tmp;
-				phase_error = atan(prompt_sum[1] / prompt_sum[0]);
-				tmp[0] = cos(-phase_error);
-				tmp[1] = sin(-phase_error);
-				complex_mul(nco.current, nco.current, tmp);
-
-				/* Keep nco unit-length so it's only a
-				 * rotation. */
-				normalize(nco.current);
-
-				doppler += phase_error * (1000 / (2 * M_PI) / 100);
-				nco_set_rate(&nco, sample_freq, -doppler);
-				chips_per_sample = (clock_error + 1023e3 * (1 + doppler / 1575.42e6)) / sample_freq;
-			}
-
-			if(fabs(early_sum) >= 1 || fabs(late_sum) >= 1)
-			{
-				code_phase_error = 0.5 - fabs(early_sum) / (fabs(early_sum) + fabs(late_sum));
-				code_phase += code_phase_error / 10;
-			}
-
-			if(TRACE)
-				printf("%f\t%f\t%f\t%f\t%f\t%f\n",
-					i * 1000.0 / sample_freq,
-					prompt_sum[0], prompt_sum[1],
-					phase_error, doppler,
-					code_phase_error);
-
-			prompt_sum[0] = prompt_sum[1] = 0;
-			early_sum = late_sum = 0;
-			ready = 0;
-
-			/* Keep code phase in a reasonable range so it
-			 * doesn't lose precision on the low bits. */
-			code_phase -= 1023;
-		}
-	}
-	if(TRACE)
-		printf("\n");
-}
-
 static void update_stats(struct signal_strength *stats, double bin_width, int shift, double phase, double snr_0, double snr_1, double snr_2)
 {
 	double shift_correction;
@@ -308,8 +226,6 @@ int main(int argc, char **argv)
 	unsigned int training_len = training1_len + training2_len;
 	fftw_complex *training = fftw_malloc(sizeof(fftw_complex) * training_len);
 	fftw_complex *training2 = training + training1_len;
-	unsigned int data_len = sample_freq * 2;
-	fftw_complex *data = fftw_malloc(sizeof(fftw_complex) * data_len);
 	struct signal_strength signals[MAX_SV];
 	int i;
 	double clock_error_sum = 0;
@@ -330,8 +246,6 @@ int main(int argc, char **argv)
 		training[i][1] = -training[i][1];
 	}
 
-	data_len = read_samples(data, data_len);
-
 	for(i = 0; i < MAX_SV; ++i)
 		signals[i] = check_satellite(sample_freq, training, training1_len, training2, training2_len, i + 1);
 
@@ -349,11 +263,6 @@ int main(int argc, char **argv)
 	printf("# %u satellites in view; average clock error %f chips/s\n", visible_satellites, clock_error_sum / visible_satellites);
 	printf("\n");
 
-	for(i = 0; i < MAX_SV; ++i)
-		if(is_present(&signals[i]))
-			demod(sample_freq, clock_error_sum / visible_satellites, data, data_len, i + 1, signals[i].doppler, signals[i].phase, training_len);
-
-	fftw_free(data);
 	fftw_free(training);
 	fftw_cleanup();
 	exit(EXIT_SUCCESS);
