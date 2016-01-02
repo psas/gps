@@ -192,18 +192,24 @@ int main(int argc, char **argv)
 	for(i = 0; i < MAX_SV; ++i)
 		signals[i] = check_satellite(sample_freq, training, training_len, i + 1);
 
-	printf("# SV, S/N (dB-Hz), doppler shift (Hz), code phase (chips)\n");
+    /* Pretty print JSON output for using in other analysis */
+    printf("{\n");
+    uint8_t first = 1;
 	for(i = 0; i < MAX_SV; ++i)
 	{
 		if(is_present(&signals[i]))
 		{
-			printf("%c %d\t%f\t%f\t%f\n", is_present(&signals[i]) ? '*' : ' ', i + 1,
-				10 * log10(signals[i].snr), signals[i].doppler, signals[i].phase);
+            if (!first) printf(",\n");
+			printf("  \"%2d\": {\"snr\": %4.1f, \"doppler\": %10.4f, \"phase\": %7.2f}",
+                i + 1,
+				10 * log10(signals[i].snr),
+                signals[i].doppler,
+                signals[i].phase);
 			++visible_satellites;
+            first = 0;
 		}
 	}
-	printf("# %u satellites in view\n", visible_satellites);
-	printf("\n");
+    printf("\n}\n");
 
 	fftw_free(training);
 	fftw_cleanup();
