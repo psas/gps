@@ -6,6 +6,7 @@ highly recommend for background:
 
 > <http://www.holmea.demon.co.uk/GPS/Main.htm>
 
+## Sample Data
 
 The input format is that used by KD7LMO for OTA GPS captures in 2005. KD7LMO's
 data is:
@@ -31,20 +32,5 @@ For another source of raw GPS samples, try:
 - <http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/> (7+GB) From setiQuest SigBlips archive.  See http://www.acasper.org/2011/11/07/gps-signal-analysis/ for analysis of this data.
 - <http://setiquest.org/setidata/data1/download/2010-01-22-gps-prn26> (3.2GB) 3 minutes of SV26 from setiQuest SigBlips archive.
 
-## Build
 
-Requres libfft.
 
-    $ sudo apt-get install libfftw3-dev
-    $ make
-
-## Useful commands
-
-Run the soft correlator at one-second intervals over data recorded from
-a MAX2769 to the Launch-12 avionics stack. (Assumes you've fetched the
-raw
-[flightcomputer.log](http://annex.psas.pdx.edu/Launch-12/flightcomputer.log)
-and the [psas\_packet](https://github.com/psas/psas_packet) library
-source code.)
-
-    .../psas_packet/binary-slice JGPS < flightcomputer.log | split --filter='./read-max | ./soft-correlator 4092000 > $FILE &' --bytes=2046000 --suffix-length=4 --numeric-suffixes - sats/fft
