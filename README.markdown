@@ -4,6 +4,8 @@ This is a software correlator for GPS. Our primary reference for FFT-based
 correlation was [Andrew Holme's homebrew GPS receiver documentation](http://www.holmea.demon.co.uk/GPS/Main.htm), which we
 highly recommend for background.
 
+This project is currently the focus of the 2017 ECE capstone team. The first objective is to create a Python prototype correlator. If time allows, the code will be ported to an embedded Rust implementation, and flown on the rocket as well as OreSat.
+
 ## Sample Data
 
 ### Python Code
