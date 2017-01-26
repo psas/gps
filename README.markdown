@@ -1,12 +1,18 @@
 # GPS Experiments
 
 This is a software correlator for GPS. Our primary reference for FFT-based
-correlation was Andrew Holme's homebrew GPS receiver documentation, which we
-highly recommend for background:
-
-> <http://www.holmea.demon.co.uk/GPS/Main.htm>
+correlation was [Andrew Holme's homebrew GPS receiver documentation](http://www.holmea.demon.co.uk/GPS/Main.htm), which we
+highly recommend for background.
 
 ## Sample Data
+
+### Python Code
+
+The python code is primarily tested using the GPS data recorded from L-12. The files are located in the /resources/ directory. More info can be found in the Launch 12 repo.
+
+### C Code
+
+The C code has been tested with the data logged by KD7LMO. [Original Site](http://www.kd7lmo.net/ground_gnuradio_ota.html) [Mirror](http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html) More info is below:
 
 The input format is that used by KD7LMO for OTA GPS captures in 2005. KD7LMO's
 data is:
@@ -15,16 +21,15 @@ data is:
  - quadrature sampled at 4MSPS,
  - encoded Intel endian, 32-bit floating point values in I, Q interleaved
 
-Original site: <http://www.kd7lmo.net/ground_gnuradio_ota.html>
-Mirrored at: <http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html>
-
-These datafile should have the following sats in them:
+These datafiles should have the following sats in them:
 
  File Name                         | Capture Info            | Sats, remarks
  --------------------------------- | ----------------------- | -------------
  `gps_4m_complex.dat`              | 0008 UTC on 26 Mar 2005 | SV 1, 3, 14, 15, 19, 21, 22, 25 and WAAS 47
  `gps_4m_complex.21Apr2005.dat`    | 0522 UTC on 21 Apr 2005 | SV 3, 8, 13, 16, 19, 20, 23, 27 and WAAS 35 and 47
  `gps_4msps_complex.12Sep2005.dat` | A 60 second capture     | Snapshot contains at least one set of ephemeris data.
+
+### Other data samples
 
 For another source of raw GPS samples, try:
 - <http://kom.aau.dk/project/softgps/data.php>.
