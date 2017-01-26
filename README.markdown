@@ -32,10 +32,10 @@ These datafiles should have the following sats in them:
 ### Other data samples
 
 For another source of raw GPS samples, try:
-- <http://kom.aau.dk/project/softgps/data.php>.
-- <http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download> (1.2GB) From http://www.gnss-sdr.org/ project.
-- <http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/> (7+GB) From setiQuest SigBlips archive.  See http://www.acasper.org/2011/11/07/gps-signal-analysis/ for analysis of this data.
-- <http://setiquest.org/setidata/data1/download/2010-01-22-gps-prn26> (3.2GB) 3 minutes of SV26 from setiQuest SigBlips archive.
+- [SoftGPS Project](http://kom.aau.dk/project/softgps/data.php)
+- [(1.2GB) gnss-sdr project @ Sourceforge](http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download)
+- [(7+GB) From setiQuest SigBlips archive.] (http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/) See [here](http://www.acasper.org/2011/11/07/gps-signal-analysis/) for analysis of this data.
+- [(3.2GB) 3 minutes of SV26 from setiQuest SigBlips archive](http://setiquest.org/setidata/data1/download/2010-01-22-gps-prn26)
 
 
 
