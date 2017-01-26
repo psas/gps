@@ -12,7 +12,7 @@ The python code is primarily tested using the GPS data recorded from L-12. The f
 
 ### C Code
 
-The C code has been tested with the data logged by KD7LMO. [Original Site](http://www.kd7lmo.net/ground_gnuradio_ota.html)//[Mirror](http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html) More info is below:
+The C code has been tested with the data logged by KD7LMO. [Original Site](http://www.kd7lmo.net/ground_gnuradio_ota.html) // [Mirror](http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html). More info about the data is below:
 
 The input format is that used by KD7LMO for OTA GPS captures in 2005. KD7LMO's
 data is:
