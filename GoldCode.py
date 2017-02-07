@@ -44,7 +44,7 @@ class GoldCode:
 
         for i in range(num):
             val = (self.g1[9] + self.g2[self.tap[0]] + self.g2[self.tap[1]]) % 2
-            g.append(val)
+            g.append(1 if val else -1)
             self._shift()
 
         return g
