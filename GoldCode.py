@@ -49,7 +49,7 @@ class GoldCode:
             g.append(val)
             self._shift()
 
-        if(zero = False):
+        if(zero == False):
             #format GC to have -1 in place of 0
             for n,i in enumerate(g):
                 if i==0:
@@ -78,7 +78,7 @@ class GoldCode:
             g.append(val)
             self._shift()
 
-         if(zero = False):
+         if(zero == False):
             #format GC to have -1 in place of 0
             for n,i in enumerate(g):
                 if i==0:
