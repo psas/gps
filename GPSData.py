@@ -60,7 +60,13 @@ class IQData:
 
         return
 
-    def importFile(self, path):
+    def importFile(self, path, fs, seconds):
+        '''
+        imports IQ Data from a file
+        fs is sampling frequency
+        seconds is the length of data in seconds
+
+        '''
         print("Opening a file.")
         fHandle = open(path,'rb')
         print("File handle is: %d." % (fHandle.fileno()))
@@ -68,10 +74,8 @@ class IQData:
         # Read file one byte at a time, extract the two 
         # IQ pairs, and store in array, after conversion to float.
         # Will initially read enough samples for ~20 ms of data
-        fs = 4.092*10**6 # Sampling Frequency [Hz]
         Ts = 1/fs # Sampling Period [s]
-        NumberOfMilliseconds = 1
-        SampleLength = NumberOfMilliseconds*10**(-3) # Sample length in 1ms multiples
+        SampleLength = seconds # Sample length in 1ms multiples
         StartingByte = 0 # Can change this if we want to discard initial samples
         TotalSamples = int(np.ceil(SampleLength/Ts)) 
         TotalBytes = int(np.ceil(TotalSamples/2))
