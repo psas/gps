@@ -1,7 +1,7 @@
 
 #Store the shift registers as a deque, so that deque.rotate{} can be used.
 from collections import deque  
-
+import numpy as np
 class GoldCode:
     '''
     GPS Gold Code generator. Initialized with the feedback taps for one satellite.
@@ -57,7 +57,8 @@ class GoldCode:
         
         if (samplesPerChip > 1 ):
             # Repeat each chip to match our ADC sample frequency
-            CACodeSampled = np.repeat(CACode, samplesPerChip)
+            gsamp = np.repeat(g, samplesPerChip)
+            return gsamp
         return g
 
     def getSegment(self, first, last, zero = False, samplesPerChip = 1):
@@ -87,6 +88,7 @@ class GoldCode:
 
         if (samplesPerChip > 1 ):
             # Repeat each chip to match our ADC sample frequency
-            CACodeSampled = np.repeat(CACode, samplesPerChip)
+            gsamp = np.repeat(g, samplesPerChip)
+            return gsamp
         return g
 

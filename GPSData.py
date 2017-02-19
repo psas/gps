@@ -12,6 +12,10 @@ class IQData:
     QData = []
     CData = []
     
+    sampleFreq = 0
+    sampleTime = 0
+    Nsamples   = 0
+
     def _byteToIQPairs(self, TheByte ):
         IQPairs = []
 
@@ -71,6 +75,9 @@ class IQData:
         fHandle = open(path,'rb')
         print("File handle is: %d." % (fHandle.fileno()))
         
+        self.sampleFreq = fs
+        self.sampleTime = seconds
+
         # Read file one byte at a time, extract the two 
         # IQ pairs, and store in array, after conversion to float.
         # Will initially read enough samples for ~20 ms of data
@@ -78,6 +85,7 @@ class IQData:
         SampleLength = seconds # Sample length in 1ms multiples
         StartingByte = 0 # Can change this if we want to discard initial samples
         TotalSamples = int(np.ceil(SampleLength/Ts)) 
+        self.Nsamples = TotalSamples
         TotalBytes = int(np.ceil(TotalSamples/2))
         print("Total Samples to read: %d"%(TotalSamples))
         print("Total Bytes read: %d." %(TotalBytes))
