@@ -155,17 +155,17 @@ def cacode(chip, sv):
     return ca_code_states[chip][0] ^ ca_code_states[g2chip][1]
 
 class codes():
-    def __init__(self, samples_per_chip=1, zeros=False):
-        self._samples_per_chip = samples_per_chip
+    def __init__(self, zeros=False):
         self._codes = {k:None for k in SV.keys()}
 
         for k in self._codes.keys():
             c = [cacode(i,k) for i in range(chips_per_code)]
-            self._codes[k] = [int(i) for i in np.repeat(c, samples_per_chip)]
             if zeros is False:
-                self._codes[k] = [-1 if val is 0 else -1 for val in self._codes[k]]
-
-        self._len = samples_per_chip*chips_per_code
+                self._codes[k] = [-1 if val is 0 else 1 for val in c]
+            else:
+                self._codes[k] = c
+            
+        self._len = chips_per_code
 
     def __call__(self, sv, chip):
         return self._codes[sv][chip % self._len]
