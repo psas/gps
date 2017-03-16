@@ -1,0 +1,70 @@
+# First clone these two repositories
+$ clone https://github.com/psas/commander
+$ clone https://github.com/psas/av3-fc ***inside of the "commander" repository***
+    ***More documentation is found under the README.md files of each of these repositories***
+
+# Download packages required to run a virtual environment and pyyaml package (you probably already have python3 and python-pip
+$ sudo apt-get install python3 libyaml-0-2 python-pip virtualenvwrapper
+  - close the terminal then reopen after virtualenvwrapper is installed
+
+# Change to commander directory
+$ cd commander
+
+# Instantiate a vitrual environment and call the instance <name> (ex. cmdr)
+$ mkvirtualenv <name>
+
+# Install the python dependencies
+(cmdr)$ sudo apt-get install python-dev libffi-dev
+(cmdr)$ pip install -r requirements.txt
+
+# Exit the virtual environment
+(cmdr)$ deactivate
+
+# Make the av3-fc repository submodules of commander repository
+$ git submodule init
+$ git submodule update --recursive
+$ cd av3-fc
+$ git submodule update --init
+
+# Instantiate a virtual environment and call the instance <name> (ex. av3fc)
+$ mkvirtualenv av3fc
+
+# Install python dependancies
+(av3fc)$ pip install -r requirements.txt
+
+# Switch back to cmdr virtual environment and go to commander directory
+(av3fc)$ workon cmdr
+(cmdr)$ cd ../commander
+    ***If you want to see the open virtual environment sessions use: $ lsvirtualenv
+
+# Execute secrets  (create a password). You can make it whatever you'd like - the default is "1"
+(cmdr)$ ./init.py
+
+# Run the flight computer application
+(cmdr)$ python app.py
+
+# Set up network port with a static IP address
+Click the network indicator --> Edit commections... --> Wired connection --> Edit --> IPv4 Settings --> Method (dropdown) --> Manual
+Under "Addresses" populate the fields with
+    Address: 10.10.10.10    Netmask: 255.255.255.0 (or 24)    Gateway: 10.10.10.1
+Click "Save"
+
+# Open a browser window and navigate to the address that displayed after running "python app.py" It should be 0.0.0.0:5000
+  The password is the password that you created when running "./init.py"
+  
+# Under the RNH tab click "[3] GPS ON"
+      *** DO NOT TURN ON WIFI!!!*** We should really only turn on the GPS module, it is recommended we leave everything else alone!
+      
+# In the terminal go back into the av3fc virtual environment and get back into the av3-fc directory
+(cmdr)$ workon av3fc
+(av3fc)$ cd ../av3-fc
+
+# Execute the files that record the data. Data will continuously record until CTRL+C.
+(av3fc)$ make
+(av3fc)$ ./build_for_flight.sh
+(av3fc)$ ./fc
+
+# To open the data file
+(av3fc)$ ll -h
+    locate the logfile that you want to look at, and you can monitor it's size progress by using
+(av3fc)$ ll -h logfile-nnn
