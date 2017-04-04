@@ -92,3 +92,11 @@ def PrintCodeTracking(intIE,intIP,intIL, intQE,intQP,intQL,discriminator):
     print("  Quadrature  Prompt: %f" %(intQP**2))
     print("  Quadrature  Late:   %f" %(intQL**2))
     print("Discriminator results: %f" %(discriminator))
+
+def CodeDiscriminator(BoolCarrierLocked, intIE, intIP, intIL, intQE, intQP, intQL):
+    if (BoolCarrierLocked == False):
+        discriminator = ((intIE ** 2 + intQE ** 2) - (intIL ** 2 + intQL ** 2)) / ((intIE ** 2 + intQE ** 2) + (intIL ** 2 + intQL ** 2))
+    else:
+        discriminator = (1/4)*((intIE-intIL)/intIP)
+
+    return discriminator

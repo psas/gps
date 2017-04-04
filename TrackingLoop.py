@@ -16,7 +16,7 @@ fs = 4.092*10**6
 estimatedDoppler = 13 # Hz, from Acquisition
 
 
-
+### Code Tracking (single pass)
 # Get Early, Prompt, Late C/A codes
 codeE, codeP, codeL = GetCACodeEPL(satPRL, estimatedPhase, samplesPerChip, chipDelay)
 
@@ -29,8 +29,11 @@ ImixE, ImixP, ImixL, QmixE, QmixP, QmixL = MixSignals(codeE,codeP,codeL,IData,QD
 # Perform integration (sum)
 intIE,intIP,intIL, intQE,intQP,intQL = SumSignals(ImixE, ImixP, ImixL, QmixE, QmixP, QmixL)
 
-# Get discriminator
-discriminator = ((intIE ** 2 + intQE ** 2) - (intIL ** 2 + intQL ** 2)) / ((intIE ** 2 + intQE ** 2) + (intIL ** 2 + intQL ** 2))
+# Get discriminator (True if carrier is locked, false otherwise)
+discriminator = CodeDiscriminator(False, intIE, intIP, intIL, intQE, intQP, intQL)
 
 # Print results
 PrintCodeTracking(intIE,intIP,intIL, intQE,intQP,intQL,discriminator)
+
+
+### Carrier Tracking (single pass)
