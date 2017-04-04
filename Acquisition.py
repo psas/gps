@@ -23,39 +23,22 @@ def main():
     data = IQData()
 
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
-    data.importFile('../resources/JGPS@04.559925043', fs, SampleLength, BytesToSkip)
+    data.importFile('./resources/JGPS@04.559925043', fs, SampleLength, BytesToSkip)
     #data.importFile('../resources/test.max', fs, SampleLength, BytesToSkip)
 
     BinWidth = (fs/len(data.CData))
     print("BinWidth is: %f [Hz]"%(BinWidth))
 
+    everything(data, NumberOfMilliseconds)
 
-    #Choose which satellite's C/A code is generated
-    Satellite = 13
-
-    # Create list of C/A code Taps, for simpler sat selection",
-    sat = [(1,5),(2,6),(3,7),(4,8),(0,8),(1,5),(0,7),(1,8),(2,9),(1,2),(2,3),(4,5),(5,6),(6,7),(7,8),(8,9),(0,3),(1,4),(2,5),(3,6),(4,7),(5,8),(0,2),(3,5),(4,6),(5,7),(6,8),(7,9),(0,5),(1,6),(2,7),(3,8),(4,9),(3,9),(0,6),(1,7),(3,9)]
-
-    # Create Code Generator object for chosen Satellite
-    CodeGen = GoldCode(sat[Satellite - 1]) # Index starts at zero
-
-    # Generate CA Code
-    CACode = CodeGen.getCode(1023)
-
-    CACodeSampled = np.repeat(CACode,4)
-    print("Satellite chosen: %d, with tap: %s" %(Satellite,str(sat[Satellite - 1])))
-
-    # Repeat entire array for each ms of data sampled
-    CACodeSampled = np.tile(CACodeSampled,int(SampleLength*1000))
-    print(len(CACodeSampled))
-
-def everything():
+def everything(data, NumberOfMilliseconds):
     #Choose what frequencies and satellites to increment over
     StartingFrequencyShift = -8*10**3
     EndingFrequencyShift = 8*10**3
     FrequencyShiftIncrement = 100
     FrequencyList = range(StartingFrequencyShift,EndingFrequencyShift + FrequencyShiftIncrement,FrequencyShiftIncrement)
-
+    nfft = data.Nsamples
+    fs = data.sampleFreq
     StartingSatellite = 1
     EndingSatellite = 32
     SatelliteList = range(StartingSatellite, EndingSatellite + 1)
@@ -136,31 +119,31 @@ def everything():
 
 
             freqInd = freqInd + 1
+        
+        
+        ''' Peak to Mean doesn't show as much
+        plt.figure()
+        plt.plot(FrequencyList, SatInfo[satInd].dBPeakToMean)
+        #plt.ylim((0,20))
+        plt.xlabel('Doppler Shift (Hz)')
+        plt.ylabel('Peak-to-RMS ratio (dB)')
+        plt.title("Sat %d - PeakToRMS"%curSat)
+        plt.show()
+        '''
+        
+        plt.figure()
+        plt.plot(FrequencyList, SatInfo[satInd].PeakToSecond)
+        plt.ylim((0,20))
+        plt.xlabel('Doppler Shift (Hz)')
+        plt.ylabel('Peak-to-SecondLargest ratio (dB)')
+        plt.title("Sat %d - PeakToSecondLargest"%curSat)
+        plt.show()
+        
+        MaxFreqThisSat = FrequencyList[np.argmax(SatInfo[satInd].PeakToSecond)]
+        print("Sat: %d. Frequency with highest peak: %f" %(curSat,MaxFreqThisSat))
 
-
-    ''' Peak to Mean doesn't show as much
-    plt.figure()
-    plt.plot(FrequencyList, SatInfo[satInd].dBPeakToMean)
-    #plt.ylim((0,20))
-    plt.xlabel('Doppler Shift (Hz)')
-    plt.ylabel('Peak-to-RMS ratio (dB)')
-    plt.title("Sat %d - PeakToRMS"%curSat)
-    plt.show()
-    '''
-
-    #plt.figure()
-    #plt.plot(FrequencyList, SatInfo[satInd].PeakToSecond)
-    #plt.ylim((0,20))
-    #plt.xlabel('Doppler Shift (Hz)')
-    #plt.ylabel('Peak-to-SecondLargest ratio (dB)')
-    #plt.title("Sat %d - PeakToSecondLargest"%curSat)
-    #plt.show()
-
-    MaxFreqThisSat = FrequencyList[np.argmax(SatInfo[satInd].PeakToSecond)]
-    print("Sat: %d. Frequency with highest peak: %f" %(curSat,MaxFreqThisSat))
-
-    maxVals[satInd + 1] = max(SatInfo[satInd].PeakToSecond)
-    satInd = satInd+1
+        maxVals[satInd + 1] = max(SatInfo[satInd].PeakToSecond)
+        satInd = satInd+1
 
 def outputplot(ratios):
     ran = np.arange(len(maxVals))
