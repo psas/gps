@@ -6,6 +6,10 @@ highly recommend for background.
 
 This project is currently the focus of the 2017 ECE capstone team. The first objective is to create a Python prototype correlator. If time allows, the code will be ported to an embedded Rust implementation, and flown on the rocket as well as OreSat.
 
+# Documentation
+
+To learn more about the theory about how GPS and the software works, you can browse the Jupyter notebooks located in the /notebooks folder. 
+
 ## Sample Data
 
 ### Python Code
