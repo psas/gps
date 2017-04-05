@@ -26,17 +26,15 @@ def main():
     data.importFile('./resources/JGPS@04.559925043', fs, SampleLength, BytesToSkip)
     #data.importFile('../resources/test.max', fs, SampleLength, BytesToSkip)
 
-    BinWidth = (fs/len(data.CData))
-    print("BinWidth is: %f [Hz]"%(BinWidth))
+    acquire(data)
 
-    everything(data, NumberOfMilliseconds)
-
-def everything(data, NumberOfMilliseconds):
+def acquire(data, showFinalPlot = True, saveSatResults = False):
     #Choose what frequencies and satellites to increment over
     StartingFrequencyShift = -8*10**3
     EndingFrequencyShift = 8*10**3
     FrequencyShiftIncrement = 100
     FrequencyList = range(StartingFrequencyShift,EndingFrequencyShift + FrequencyShiftIncrement,FrequencyShiftIncrement)
+    NumberOfMilliseconds = data.sampleTime * 1000
     nfft = data.Nsamples
     fs = data.sampleFreq
     StartingSatellite = 1
@@ -105,7 +103,7 @@ def everything(data, NumberOfMilliseconds):
             PeakTodBRatio = maxdB - rmsPowerdB
 
             # Search for secondlargest value in 1 ms worth of data
-            SecondLargestValue = GetSecondLargest(resultSQ[0:int(fs*0.001)])
+            SecondLargestValue = _GetSecondLargest(resultSQ[0:int(fs*0.001)])
 
             # Pseudo SNR
             PeakToSecondLargestRatio = 10*np.log10(np.amax(resultSQ)/SecondLargestValue)
@@ -121,38 +119,33 @@ def everything(data, NumberOfMilliseconds):
             freqInd = freqInd + 1
         
         
-        ''' Peak to Mean doesn't show as much
-        plt.figure()
-        plt.plot(FrequencyList, SatInfo[satInd].dBPeakToMean)
-        #plt.ylim((0,20))
-        plt.xlabel('Doppler Shift (Hz)')
-        plt.ylabel('Peak-to-RMS ratio (dB)')
-        plt.title("Sat %d - PeakToRMS"%curSat)
-        plt.show()
-        '''
-        
-        plt.figure()
-        plt.plot(FrequencyList, SatInfo[satInd].PeakToSecond)
-        plt.ylim((0,20))
-        plt.xlabel('Doppler Shift (Hz)')
-        plt.ylabel('Peak-to-SecondLargest ratio (dB)')
-        plt.title("Sat %d - PeakToSecondLargest"%curSat)
-        plt.show()
+        #Peak to Mean doesn't show as much as peak to second-largest
+        if saveSatResults == True:
+            plt.figure()
+            plt.plot(FrequencyList, SatInfo[satInd].PeakToSecond)
+            plt.ylim((0,20))
+            plt.xlabel('Doppler Shift (Hz)')
+            plt.ylabel('Peak-to-SecondLargest ratio (dB)')
+            plt.title("Sat %d - PeakToSecondLargest"%curSat)
+            plt.show()
         
         MaxFreqThisSat = FrequencyList[np.argmax(SatInfo[satInd].PeakToSecond)]
         print("Sat: %d. Frequency with highest peak: %f" %(curSat,MaxFreqThisSat))
 
         maxVals[satInd + 1] = max(SatInfo[satInd].PeakToSecond)
         satInd = satInd+1
+    if showFinalPlot == True:
+        _outputplot(maxVals)
 
-def outputplot(ratios):
-    ran = np.arange(len(maxVals))
+def _outputplot(ratios):
+    #Creates an output plot that shows the acquisition result for all SVs
+    ran = np.arange(len(ratios))
     fig, ax = plt.subplots(figsize = [10,8])
 
     #Use highest correlations for the 6 highest channels
-    channels = np.argpartition(maxVals, -6)[-6:]
+    channels = np.argpartition(ratios, -6)[-6:]
 
-    ax.bar(ran, maxVals, linewidth=1)
+    ax.bar(ran, ratios, linewidth=1)
     ax.set_axis_bgcolor('#898b8e')
 
     childrenLS = ax.get_children()
@@ -164,13 +157,13 @@ def outputplot(ratios):
             bar.edgecolor = 'white'
             bar.linewidth = 6
                                             
-    plt.xlim([0, len(maxVals) + 1])
+    plt.xlim([0, len(ratios) + 1])
     plt.title('Acquisition Results')
     plt.ylabel('Ratio of top 2 peaks (dB)')
     plt.xlabel('Satellite')
     plt.show()
 
-def GetSecondLargest(DataList):
+def _GetSecondLargest(DataList):
     # This will return second largest value
     # It will also ignore any value that is close to the second largest value
     
