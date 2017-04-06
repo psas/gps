@@ -84,16 +84,14 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
     for curSat in sat_list:
         print("Searching for SV " + str(curSat) + "...")
         # Create Code Generator object for chosen Satellite
-        CodeGen = GoldCode(sat[curSat - 1]) # Index starts at zero
+        codeGen = GoldCode(sat[curSat - 1]) # Index starts at zero
 
         # Generate CA Code
-        CACode = CodeGen.getCode(1023)
+        CACode = codeGen.getCode(1023, samplesPerChip=4)
 
-        # Repeat each chip 4 times (See markdown in above cell), to match our ADC sample frequency",
-        CACodeSampled = np.repeat(CACode, 4)
 
         # Repeat entire array for each ms of data sampled
-        CACodeSampled = np.tile(CACodeSampled, numberOfMilliseconds)
+        CACodeSampled = np.tile(CACode, numberOfMilliseconds)
 
         acqResult = findSat(data, CACodeSampled, bin_list)
 
@@ -103,7 +101,7 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
             plt.plot(bin_list, SatInfo[satInd].PeakToSecond)
             plt.ylim((0, 20))
             plt.xlabel('Doppler Shift (Hz)')
-            plt.ylabel('Peak-to-SecondLargest ratio (dB)')                                                                      
+            plt.ylabel('Peak-to-SecondLargest ratio (dB)')
             plt.title("Sat %d - PeakToSecondLargest"%curSat)
             plt.show()
 
@@ -115,17 +113,33 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
     return maxVals
 
 def findSat(data, code, bins, tracking = False):
-    #Inputs: some IQ data, a CA code, and the frequency bins to seach through
-    #Outputs: The frequency bin where acquired, and a list of pseudo-SNRs,
+    '''
+    Searches IQ Data for a single satellite across all specified frequencies.
+
+    ## Args:
+
+    data: gps.IQData object that has already been trimmed to length.
+
+    code: C/A code for the desired satellite that has been generated, sampled,
+    and extended.
+
+    ## kwArgs:
+   
+
+    ## Returns:
+    object containing acquisition results for the satellite
+
+    '''
+
 
 
     SNR_THRESHOLD = 3.4
     #if tracking is True:
-    PeakToSecondList = np.zeros(len(bins))
-    Codefft = np.fft.fft(code,data.Nsamples)
+    peakToSecondList = np.zeros(len(bins))
+    codefft = np.fft.fft(code, data.Nsamples)
 
-    GCConj = np.conjugate(Codefft)
-    N = len(bins)
+    GCConj = np.conjugate(codefft)
+    #N = len(bins)
     freqInd = 0
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
@@ -144,7 +158,7 @@ def findSat(data, code, bins, tracking = False):
         rmsPowerdB = 10*np.log10(np.mean(resultSQ))
         resultdB = 10*np.log10(resultSQ)
 
-        maxAbsSquared = np.amax(resultSQ)
+        #maxAbsSquared = np.amax(resultSQ)
         maxAbsSquaredInd = np.argmax(resultSQ)
         phaseInTime = maxAbsSquaredInd/data.sampleFreq
         phaseInChips = phaseInTime*1.023*10**6
@@ -153,36 +167,42 @@ def findSat(data, code, bins, tracking = False):
         maxdB = np.amax(resultdB)
         maxdBInd = np.argmax(resultdB)
 
-        PeakTodBRatio = maxdB - rmsPowerdB
+        peakTodBRatio = maxdB - rmsPowerdB
 
         # Search for secondlargest value in 1 ms worth of data
-        SecondLargestValue = _GetSecondLargest(resultSQ[0:int(data.sampleFreq*0.001)])
+        secondLargestValue = _GetSecondLargest(resultSQ[0:int(data.sampleFreq*0.001)])
 
         # Pseudo SNR
+        peakToSecond = (10*np.log10(np.amax(resultSQ) / secondLargestValue))
 
-        PeakToSecond = ( 10*np.log10(np.amax(resultSQ)/SecondLargestValue))
         #if tracking is True:
-        PeakToSecondList[n] = PeakToSecond 
+        peakToSecondList[n] = peakToSecond
 
         #SatInfo[satInd].dBPeakToMean.append(PeakTodBRatio)
 
         # Don't print data when correlation is probably not happening
-        if PeakToSecond > SNR_THRESHOLD:
-            print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, Phase (chips): %8.4f"%(curFreq, PeakTodBRatio, PeakToSecond, phaseInChips))
+        if peakToSecond > SNR_THRESHOLD:
+            print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, \
+                  Phase (chips): %8.4f"%(curFreq, peakTodBRatio, peakToSecond, phaseInChips))
 
         freqInd = freqInd + 1
 
-        print("%02d%%"%((n/N)*100), end="\r")
-    MaxFreqThisSat = bins[np.argmax(PeakToSecondList)]
+        # Percentage Output
+        # print("%02d%%"%((n/N)*100), end="\r")
+    maxFreqThisSat = bins[np.argmax(peakToSecondList)]
 
-    return (MaxFreqThisSat, PeakToSecondList)
+    return (maxFreqThisSat, peakToSecondList)
 
 
 
 
 
 def _outputplot(ratios):
-    #Creates an output plot that shows the acquisition result for all SVs
+    '''
+    Outputs a formatted matplotlib plot of the highest pseudo-SNR value for each SW across all
+    frequencies.
+    '''
+
     ran = np.arange(len(ratios))
     fig, ax = plt.subplots(figsize=[10, 8])
 
@@ -210,6 +230,9 @@ def _outputplot(ratios):
     plt.show()
 
 def _GetSecondLargest(DataList):
+    '''
+    Returns the second largest value in an array
+    '''
     # This will return second largest value
     # It will also ignore any value that is close to the second largest value
 
