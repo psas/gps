@@ -1,4 +1,4 @@
-#!/usr/bin/env python3  
+#!/usr/bin/env python3
 '''
 Portland State Aerospace Society
 
@@ -14,16 +14,18 @@ from GoldCode import GoldCode
 from GPSData import IQData
 
 def main():
+    '''
+    Acquires data from default file when Acquisition.py is run directly
+    '''
     # Need these to pass to importFile module
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    NumberOfMilliseconds = 14
-    SampleLength = NumberOfMilliseconds*10**(-3)
-    BytesToSkip = 0
+    numberOfMilliseconds = 14
+    sampleLength = numberOfMilliseconds*10**(-3)
+    bytesToSkip = 0
 
     data = IQData()
-
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
-    data.importFile('./resources/JGPS@04.559925043', fs, SampleLength, BytesToSkip)
+    data.importFile('./resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
     #data.importFile('../resources/test.max', fs, SampleLength, BytesToSkip)
 
     acquire(data)
@@ -33,32 +35,53 @@ class SatStats():
         self.SatName = SatName
         self.dBPeakToMean = []
         self.PeakToSecond = []
-    
 
-def acquire(data, showFinalPlot = True, saveSatResults = False):
+
+def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
+            show_final_plot=True, save_sat_results=False):
+    '''
+    Searches for GPS satellites in a raw IQ stream. File must be encodede to the
+    specifications found in the README
+
+    ## Args:
+
+    data: gps.IQData object that has already been trimmed to length.
+
+    ## kwArgs:
+    bin_list: int list of frequency bins to search across. Defaults to 8kHz above and below carrier
+    in 100Hz steps.
+
+    sat_list: int list of SVs to use in acquisition. Defaults to the 32 active GPS satellites.
+
+    showFinalPlot: bool determines whether matplotlib displays a bar graph of the final acquisition
+    results. Defaults to True.
+
+    saveSatResults: bool determines whether matplotlib saves a plot of each SV's frequency search.
+    Defaults to False.
+
+    ## Returns:
+    object containing acquisition results
+
+    '''
     #Choose what frequencies and satellites to increment over
-    StartingFrequencyShift = -8*10**3
-    EndingFrequencyShift = 8*10**3
-    FrequencyShiftIncrement = 100
-    FrequencyList = range(StartingFrequencyShift,EndingFrequencyShift + FrequencyShiftIncrement,FrequencyShiftIncrement)
-    NumberOfMilliseconds = data.sampleTime * 1000
-    nfft = data.Nsamples
-    fs = data.sampleFreq
-    StartingSatellite = 1
-    EndingSatellite = 32
-    SatelliteList = range(StartingSatellite, EndingSatellite + 1)
+
+    numberOfMilliseconds = data.sampleTime * 1000
+
 
     # Create list of C/A code Taps, for simpler sat selection",
-    sat = [(1,5),(2,6),(3,7),(4,8),(0,8),(1,5),(0,7),(1,8),(2,9),(1,2),(2,3),(4,5),(5,6),(6,7),(7,8),(8,9),(0,3),(1,4),(2,5),(3,6),(4,7),(5,8),(0,2),(3,5),(4,6),(5,7),(6,8),(7,9),(0,5),(1,6),(2,7),(3,8),(4,9),(3,9),(0,6),(1,7),(3,9)]
+    sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 5), (0, 7), (1, 8), (2, 9), (1, 2),
+           (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 3), (1, 4), (2, 5), (3, 6),
+           (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
+           (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
 
     # Create array to store max values, freq ranges, per satellite
     #SatMax = np.zeros((len(SatelliteList),len(FrequencyList),4))
 
-    maxVals = np.zeros(EndingSatellite + 1)
+    maxVals = np.zeros(len(sat_list) + 1)
 
-    satInd = 0 
+    satInd = 0
     # Loop through selected satellites
-    for curSat in SatelliteList: 
+    for curSat in sat_list:
         print("Searching for SV " + str(curSat) + "...")
         # Create Code Generator object for chosen Satellite
         CodeGen = GoldCode(sat[curSat - 1]) # Index starts at zero
@@ -67,40 +90,40 @@ def acquire(data, showFinalPlot = True, saveSatResults = False):
         CACode = CodeGen.getCode(1023)
 
         # Repeat each chip 4 times (See markdown in above cell), to match our ADC sample frequency",
-        CACodeSampled = np.repeat(CACode,4)
+        CACodeSampled = np.repeat(CACode, 4)
 
         # Repeat entire array for each ms of data sampled
-        CACodeSampled = np.tile(CACodeSampled,NumberOfMilliseconds)
-       
-        acqResult = findSat(data, CACodeSampled, FrequencyList)
+        CACodeSampled = np.tile(CACodeSampled, numberOfMilliseconds)
+
+        acqResult = findSat(data, CACodeSampled, bin_list)
 
         #Peak to Mean doesn't show as much as peak to second-largest
-        if saveSatResults == True:
+        if save_sat_results:
             plt.figure()
-            plt.plot(FrequencyList, SatInfo[satInd].PeakToSecond)
-            plt.ylim((0,20))
+            plt.plot(bin_list, SatInfo[satInd].PeakToSecond)
+            plt.ylim((0, 20))
             plt.xlabel('Doppler Shift (Hz)')
-            plt.ylabel('Peak-to-SecondLargest ratio (dB)')
+            plt.ylabel('Peak-to-SecondLargest ratio (dB)')                                                                      
             plt.title("Sat %d - PeakToSecondLargest"%curSat)
             plt.show()
-        
+
 
         maxVals[satInd + 1] = max(acqResult[1])
         satInd = satInd+1
-    if showFinalPlot == True:
+    if show_final_plot:
         _outputplot(maxVals)
     return maxVals
 
 def findSat(data, code, bins, tracking = False):
     #Inputs: some IQ data, a CA code, and the frequency bins to seach through
     #Outputs: The frequency bin where acquired, and a list of pseudo-SNRs,
-    
+
 
     SNR_THRESHOLD = 3.4
     #if tracking is True:
     PeakToSecondList = np.zeros(len(bins))
     Codefft = np.fft.fft(code,data.Nsamples)
-    
+
     GCConj = np.conjugate(Codefft)
     N = len(bins)
     freqInd = 0
@@ -109,7 +132,7 @@ def findSat(data, code, bins, tracking = False):
         # Initialize complex array
         CDataShifted = np.zeros(len(data.CData), dtype=np.complex)
 
-        # Shift frequency using complex exponential 
+        # Shift frequency using complex exponential
         CDataShifted = data.CData*np.exp(-1j*2*np.pi*curFreq*data.t)
 
         fftCDataShifted = np.fft.fft(CDataShifted, data.Nsamples)
@@ -119,7 +142,7 @@ def findSat(data, code, bins, tracking = False):
         resultSQ = np.real(result*np.conjugate(result))
 
         rmsPowerdB = 10*np.log10(np.mean(resultSQ))
-        resultdB= 10*np.log10(resultSQ)
+        resultdB = 10*np.log10(resultSQ)
 
         maxAbsSquared = np.amax(resultSQ)
         maxAbsSquaredInd = np.argmax(resultSQ)
@@ -145,11 +168,11 @@ def findSat(data, code, bins, tracking = False):
 
         # Don't print data when correlation is probably not happening
         if PeakToSecond > SNR_THRESHOLD:
-            print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, Phase (chips): %8.4f"%(curFreq,PeakTodBRatio,PeakToSecond, phaseInChips))
+            print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, Phase (chips): %8.4f"%(curFreq, PeakTodBRatio, PeakToSecond, phaseInChips))
 
         freqInd = freqInd + 1
 
-        print("%02d%%"%((n/N)*100), end = "\r")
+        print("%02d%%"%((n/N)*100), end="\r")
     MaxFreqThisSat = bins[np.argmax(PeakToSecondList)]
 
     return (MaxFreqThisSat, PeakToSecondList)
@@ -161,26 +184,25 @@ def findSat(data, code, bins, tracking = False):
 def _outputplot(ratios):
     #Creates an output plot that shows the acquisition result for all SVs
     ran = np.arange(len(ratios))
-    fig, ax = plt.subplots(figsize = [10,8])
+    fig, ax = plt.subplots(figsize=[10, 8])
 
     #Use highest correlations for the 6 highest channels
     channels = np.argpartition(ratios, -6)[-6:]
 
-    ax.bar(ran, ratios, linewidth=0, color = '#aec7e8')
+    ax.bar(ran, ratios, linewidth=0, color='#aec7e8')
     #ax.set_axis_bgcolor('#e3ecf9')
 
     childrenLS = ax.get_children()
-    barlist=filter(lambda x: isinstance(x, matplotlib.patches.Rectangle), childrenLS)
-    
+    barlist = filter(lambda x: isinstance(x, matplotlib.patches.Rectangle), childrenLS)
 
-    for n, bar in enumerate(barlist):
+    for n, bar0 in enumerate(barlist):
         if n in channels:
-            bar.set_color('#ffbb78')
-            bar.edgecolor = 'b'
-            bar.linewidth = 6
-        elif (n != 33) and ratios[n] > 3.0 :    
-            bar.set_color('#98df8a')
-                                            
+            bar0.set_color('#ffbb78')
+            bar0.edgecolor = 'b'
+            bar0.linewidth = 6
+        elif (n != 33) and ratios[n] > 3.0:
+            bar0.set_color('#98df8a')
+
     plt.xlim([0, len(ratios) + 1])
     plt.title('Acquisition Results')
     plt.ylabel('Ratio of top 2 peaks (dB)')
@@ -190,7 +212,7 @@ def _outputplot(ratios):
 def _GetSecondLargest(DataList):
     # This will return second largest value
     # It will also ignore any value that is close to the second largest value
-    
+
     # Make sure is a numpy array
     DataArray = np.array(DataList)
 
@@ -205,7 +227,7 @@ def _GetSecondLargest(DataList):
     SecondLargest = 0
     SecondLargestIndex = 0
 
-    for ind,val in enumerate(DataArray):
+    for ind, val in enumerate(DataArray):
         if val < ScaledLargest:
             if val > SecondLargest:
             #Ignore adjacent bins to Largest
