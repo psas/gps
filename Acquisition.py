@@ -139,7 +139,7 @@ def findSat(data, code, bins, tracking = False):
     codefft = np.fft.fft(code, data.Nsamples)
 
     GCConj = np.conjugate(codefft)
-    #N = len(bins)
+    N = len(bins)
     freqInd = 0
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
