@@ -89,6 +89,7 @@ def acquire(data, showFinalPlot = True, saveSatResults = False):
         satInd = satInd+1
     if showFinalPlot == True:
         _outputplot(maxVals)
+    return maxVals
 
 def findSat(data, code, bins, tracking = False):
     #Inputs: some IQ data, a CA code, and the frequency bins to seach through
@@ -165,17 +166,20 @@ def _outputplot(ratios):
     #Use highest correlations for the 6 highest channels
     channels = np.argpartition(ratios, -6)[-6:]
 
-    ax.bar(ran, ratios, linewidth=1)
-    ax.set_axis_bgcolor('#898b8e')
+    ax.bar(ran, ratios, linewidth=0, color = '#aec7e8')
+    #ax.set_axis_bgcolor('#e3ecf9')
 
     childrenLS = ax.get_children()
     barlist=filter(lambda x: isinstance(x, matplotlib.patches.Rectangle), childrenLS)
+    
 
     for n, bar in enumerate(barlist):
         if n in channels:
-            bar.set_color('#99ff66')
-            bar.edgecolor = 'white'
+            bar.set_color('#ffbb78')
+            bar.edgecolor = 'b'
             bar.linewidth = 6
+        elif (n != 33) and ratios[n] > 3.0 :    
+            bar.set_color('#98df8a')
                                             
     plt.xlim([0, len(ratios) + 1])
     plt.title('Acquisition Results')
