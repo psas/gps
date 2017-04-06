@@ -124,7 +124,7 @@ def findSat(data, code, bins, tracking = False):
     and extended.
 
     ## kwArgs:
-   
+
 
     ## Returns:
     object containing acquisition results for the satellite
@@ -188,7 +188,7 @@ def findSat(data, code, bins, tracking = False):
         freqInd = freqInd + 1
 
         # Percentage Output
-        # print("%02d%%"%((n/N)*100), end="\r")
+        print("%02d%%"%((n/N)*100), end="\r")
     maxFreqThisSat = bins[np.argmax(peakToSecondList)]
 
     return (maxFreqThisSat, peakToSecondList)
@@ -254,7 +254,7 @@ def _GetSecondLargest(DataList):
         if val < ScaledLargest:
             if val > SecondLargest:
             #Ignore adjacent bins to Largest
-                if (np.abs(LargestIndex-ind) > 100):
+                if np.abs(LargestIndex-ind) > 100:
                     SecondLargest = val
                     SecondLargestIndex = ind
 
