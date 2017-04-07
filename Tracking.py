@@ -17,17 +17,77 @@ def main():
     Function executed when Tracking.py is executed standalone.
 
     '''
+    # Bring in some data
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 14
+    numberOfMilliseconds = 40
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0
 
     data = IQData()
-     
     data.importFile('./resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
 
-    codes = GetTrackingCodes(13, 1470)
+    
 
+class TrackingChannel():
+    '''
+    Class for a single channel in the reciever
+    '''
+
+    def __init__(self, sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5):
+        self.InitTrackingCodes(sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5)
+    
+    def _mixAndSum(Idata, Qdata)
+        '''
+        Pass this 1ms of Idata and 1ms of Qdata, the tracking values will update
+        '''
+        
+        self.Ie = np.sum(Idata * self.codeE)
+        self.Ip = np.sum(Idata * self.codeP)
+        self.Il = np.sum(Idata * self.codeL)
+        
+        self.Qe = np.sum(Qdata * self.codeE)
+        self.Qp = np.sum(Qdata * self.codeP)
+        self.Ql = np.sum(Qdata * self.codeL)
+
+    def InitTrackingCodes(sat_ind, estimated_phase, samples_per_chip=4, chip_delay=0.5):
+        '''
+        sets Early,Late,Prompt CA Codes for the channel.
+
+        # Args
+        satPRL - PRL number of CA code to generate
+        
+        estimatePhase - Phase estimate from Acquisition in samples
+        
+        samplesPerChip - How many times a single chip is sampled. This
+            is a function of sampling frequency and chip-rate.
+        
+        chipDelay - How many samples away is the Early and Late CA code
+            from the Prompt code. Typically will be half a chip.
+
+        #Returns
+
+
+        '''
+        # Create list of C/A code Taps, for simpler sat selection (zero-indexed)
+        sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 5), (0, 7), (1, 8), (2, 9), (1, 2),
+            (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 3), (1, 4), (2, 5), (3, 6),
+            (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
+            (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
+
+        # Create Code Generator object for chosen Satellite
+        self.CodeGen = GoldCode(sat[sat_ind - 1]) # Index starts at zero
+
+        # Generate Prompt code, using estimated phase from Acquisition
+        # Numpy array allows the array to be "rolled" (circular shifted)
+        # Note: if phase is positive, it will be shifted left (reason for minus in roll)
+        self.codeP = np.array(CodeGen.getCode(1023, samplesPerChip=samples_per_chip))
+        self.codeP = np.roll(codeP, -estimated_phase)
+
+        # Create Early and Late codes, by shifting Prompt code
+        self.codeE = np.roll(codeP, -chip_delay)
+        self.codeL = np.roll(codeP, chip_delay)
+
+        
 
 
 def GetTrackingCodes(sat_ind, estimated_phase, samples_per_chip=4, chip_delay=0.5):
