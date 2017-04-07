@@ -33,14 +33,34 @@ class TrackingChannel():
     Class for a single channel in the reciever
     '''
 
+    self.Locked = False
+
+    self.Ie = 0.0
+    self.Ip = 0.0
+    self.Il = 0.0
+    
+    self.Qe = 0.0
+    self.Qp = 0.0
+    self.Ql = 0.0
+
+    self.Dcode = 0.0
+    self.Dcarr = 0.0
+
     def __init__(self, sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5):
         self.InitTrackingCodes(sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5)
     
+    def Update(datams):
+        '''
+        Feed this function 1ms of data to track the assigned satellite
+        '''
+        _mixAndSum(datams.IData, datams.QData)
+        _discriminators()
+
     def _mixAndSum(Idata, Qdata)
         '''
         Pass this 1ms of Idata and 1ms of Qdata, the tracking values will update
         '''
-        
+
         self.Ie = np.sum(Idata * self.codeE)
         self.Ip = np.sum(Idata * self.codeP)
         self.Il = np.sum(Idata * self.codeL)
@@ -48,6 +68,14 @@ class TrackingChannel():
         self.Qe = np.sum(Qdata * self.codeE)
         self.Qp = np.sum(Qdata * self.codeP)
         self.Ql = np.sum(Qdata * self.codeL)
+
+    def _discriminators():
+        '''
+        Updates Code and carrier discriminators
+        '''
+        
+        self.Dcode = ((self.Ie ** 2 + self.Qe ** 2) - (self.Il ** 2 + self.Ql ** 2)) / ((self.Ie ** 2 + self.Qe ** 2) + (self.Il ** 2 + self.Ql ** 2))
+        self.Dcarr = (np.arctan(self.Qp / self.Ip) / (2 * np.pi))
 
     def InitTrackingCodes(sat_ind, estimated_phase, samples_per_chip=4, chip_delay=0.5):
         '''
