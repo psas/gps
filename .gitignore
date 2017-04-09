@@ -4,3 +4,8 @@ read-max
 read-s16
 soft-correlator
 *.dat
+.vscode
+__pycache__
+notebooks/.ipynb_checkpoints
+notebooks/*.orig
+
