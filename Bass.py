@@ -5,7 +5,7 @@ def FreqResolutionCell(N,Ts):
     # Returns the frequency resolution cell (Section 8.8 of Tsui)
     return 1/(N*Ts)
 
-def FineFrequencyEstimation(CData,Ts,SamplesBetween):
+def FineFrequencyEstimation(CData,Ts,SamplesBetween, SpecifyFreq=False,FreqSpecified=0.0):
     # This estimates the fine frequency, by way of DFT.
     # It determines the frequency of the sinusoid by taking a DFT,
     # and finding the tallest bin. Afterwards, a subsequent DFT is
@@ -29,18 +29,35 @@ def FineFrequencyEstimation(CData,Ts,SamplesBetween):
     # Generate frequency vector
     f = np.linspace(0,fs,DFT,endpoint=True)
 
-    # Get first phase angle from highest frequency component
+    # Calculate Bin Width for analysis
+    binWidth = fs/DFT
+
+    # DFT of 1st section of data
     X1 = np.fft.fft(CData[0:len(CData) - SamplesBetween - 1], DFT)
-    maxFreqBin = np.argmax(X1)
-    maxFreq1 = f[maxFreqBin]
-    #print(maxFreq1)
-    angleFound1 = np.arctan2(np.imag(X1[maxFreqBin]),np.real(X1[maxFreqBin]))
+
+    # If False, will find the frequency by searching for a peak in the
+    # frequency domain. This should work well for single frequency signals, but
+    # will probably not work well for GPS data.
+    if SpecifyFreq==False:
+        # Get first phase angle from highest frequency component
+        BinPosition = np.argmax(X1)
+        maxFreq1 = f[BinPosition]
+        print("Max Frequency Bin is: %d. Bin Width: %f." %(BinPosition,binWidth))
+        print("Max Frequency at that bin: %f." %(maxFreq1))
+        angleFound1 = np.arctan2(np.imag(X1[BinPosition]),np.real(X1[BinPosition]))
+
+    else: # Will use supplied frequency estimate to determine correct bin.
+        #Calculate Bin index from frequency supplied.
+        BinPosition = int(np.round(FreqSpecified/binWidth))
+        print("Calculated Frequency Bin is: %d. Bin Width: %f." %(BinPosition,binWidth))
+        print("Chosen Frequency: %f. Frequency at that Bin: %f." %(FreqSpecified,f[BinPosition]))
+        angleFound1 = np.arctan2(np.imag(X1[BinPosition]),np.real(X1[BinPosition]))
 
     # Get second phase angle using same frequency index from before,
     # but this time from a different time period.
     X2 = np.fft.fft(CData[SamplesBetween:len(CData) - 1], DFT)
     #print(maxFreq2)
-    angleFound2 = np.arctan2(np.imag(X2[maxFreqBin]),np.real(X2[maxFreqBin]))
+    angleFound2 = np.arctan2(np.imag(X2[BinPosition]),np.real(X2[BinPosition]))
 
     # Now calculate fine-frequency estimation
     FineFreq = (angleFound2-angleFound1)/(SamplesBetween*Ts*2*np.pi)
