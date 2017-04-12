@@ -16,9 +16,10 @@ t = np.linspace(0,sampleLength,int(sampleLength/Ts),endpoint=True)
 # This currently doesn't work for larger frequency values.
 # In order to work, freq << FreqResolutionCell
 
-freq = 250 #Hz
+freq = 1250 #Hz
 expArg = 1j*2*np.pi*freq*t
 complexSinusoid = np.exp(expArg)
+complexSinusoid = np.exp(1j*2*np.pi*15.5*t)*complexSinusoid
 
 N = len(complexSinusoid)
 print("")
