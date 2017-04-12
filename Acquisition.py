@@ -21,14 +21,20 @@ def main():
     fs = 4.092*10**6 # Sampling Frequency [Hz]
     numberOfMilliseconds = 14
     sampleLength = numberOfMilliseconds*10**(-3)
-    bytesToSkip = 0
+    bytesToSkip = 7000000#71000000 
 
     data = IQData()
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
-    data.importFile('./resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
+
+    # /home/evan/Capstone/gps/resources/JGPS@-32.041913222
+    #data.importFile('./resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
+    data.importFile('./resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
     #data.importFile('../resources/test.max', fs, SampleLength, BytesToSkip)
 
     acquire(data)
+
+
+
 
 class SatStats():
     def __init__(self, SatName):
@@ -153,7 +159,7 @@ def findSat(data, code, bins, tracking = False):
 
         result = np.fft.ifft(GCConj * fftCDataShifted, data.Nsamples)
 
-        resultSQ = np.real(result*np.conjugate(result))
+        resultSQ = np.real(result * np.conjugate(result))
 
         rmsPowerdB = 10*np.log10(np.mean(resultSQ))
         resultdB = 10*np.log10(resultSQ)
@@ -163,6 +169,8 @@ def findSat(data, code, bins, tracking = False):
         phaseInTime = maxAbsSquaredInd/data.sampleFreq
         phaseInChips = phaseInTime*1.023*10**6
         phaseInChips = 1023 - phaseInChips%1023
+
+        codePhase = np.argmax(resultSQ[0:4092])
 
         maxdB = np.amax(resultdB)
         maxdBInd = np.argmax(resultdB)
@@ -183,7 +191,7 @@ def findSat(data, code, bins, tracking = False):
         # Don't print data when correlation is probably not happening
         if peakToSecond > SNR_THRESHOLD:
             print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, \
-                  Phase (chips): %8.4f"%(curFreq, peakTodBRatio, peakToSecond, phaseInChips))
+                  Phase (samples): %8.4f"%(curFreq, peakTodBRatio, peakToSecond, codePhase)) #phaseInChips))
 
         freqInd = freqInd + 1
 
