@@ -49,11 +49,22 @@ class TrackingChannel():
     def __init__(self, sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5):
         self.InitTrackingCodes(sat_ind, acq_phase, samples_per_chip=4, chip_delay=0.5)
     
-    def Update(datams):
+    def Track(data)
+        '''
+        Feed a chunk of data here to track the assigned SV in it
+        '''
+        #t is the counter for the current ms of data
+        for t in range(int(data.sampleLength * 1000)):
+            sampleIndex = t * 4092
+            _tick(IData[sampleIndex:sampleIndex + 4092], QData[sampleIndex:sampleIndex + 4092])
+
+
+
+    def _tick(I_data_1ms, Q_data_1ms):
         '''
         Feed this function 1ms of data to track the assigned satellite
         '''
-        _mixAndSum(datams.IData, datams.QData)
+        _mixAndSum(I_data_1ms, Q_data_1ms)
         _discriminators()
 
     def _mixAndSum(Idata, Qdata)
