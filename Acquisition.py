@@ -217,7 +217,7 @@ def _outputplot(ratios):
     #Use highest correlations for the 6 highest channels
     channels = np.argpartition(ratios, -6)[-6:]
 
-    ax.bar(ran, ratios, linewidth=0, color='#aec7e8')
+    ax.bar(ran, ratios, linewidth=0, color='#aec7e8', align='center')
     #ax.set_axis_bgcolor('#e3ecf9')
 
     childrenLS = ax.get_children()
