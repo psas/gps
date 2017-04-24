@@ -21,7 +21,7 @@ def main():
     fs = 4.092*10**6 # Sampling Frequency [Hz]
     numberOfMilliseconds = 14
     sampleLength = numberOfMilliseconds*10**(-3)
-    bytesToSkip = 7000000#71000000 
+    bytesToSkip = 7000000#71000000
 
     data = IQData()
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
@@ -34,12 +34,11 @@ def main():
     acquire(data)
 
 
-
-
-class SatStats():
-    def __init__(self, SatName):
-        self.SatName = SatName
-        self.dBPeakToMean = []
+class SatStats:
+    def __init__(self):
+        self.DopplerHz = None
+        self.CodePhaseSamples  = None
+        self.CodePhaseChips = None
         self.PeakToSecond = []
 
 
@@ -82,7 +81,9 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
 
     # Create array to store max values, freq ranges, per satellite
     #SatMax = np.zeros((len(SatelliteList),len(FrequencyList),4))
-
+    satInfoList = []
+    for x in range(33):
+        satInfoList.append(SatStats())
     maxVals = np.zeros(len(sat_list) + 1)
 
     satInd = 0
@@ -97,11 +98,11 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
 
 
         # Repeat entire array for each ms of data sampled
-        CACodeSampled = np.tile(CACode, numberOfMilliseconds)
+        CACodeSampled = np.tile(CACode, int(numberOfMilliseconds))
 
         acqResult = findSat(data, CACodeSampled, bin_list)
+        satInfoList[satInd+1] = acqResult
 
-        #Peak to Mean doesn't show as much as peak to second-largest
         if save_sat_results:
             plt.figure()
             plt.plot(bin_list, SatInfo[satInd].PeakToSecond)
@@ -112,11 +113,12 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
             plt.show()
 
 
-        maxVals[satInd + 1] = max(acqResult[1])
+        maxVals[satInd + 1] = np.amax(satInfoList[satInd+1].PeakToSecond)
+
         satInd = satInd+1
     if show_final_plot:
         _outputplot(maxVals)
-    return maxVals
+    return satInfoList
 
 def findSat(data, code, bins, tracking = False):
     '''
@@ -137,11 +139,13 @@ def findSat(data, code, bins, tracking = False):
 
     '''
 
-
+    # Place to store current satellite information
+    curSatInfo = SatStats()
 
     SNR_THRESHOLD = 3.4
     #if tracking is True:
     peakToSecondList = np.zeros(len(bins))
+    codePhaseList = np.zeros(len(bins))
     codefft = np.fft.fft(code, data.Nsamples)
 
     GCConj = np.conjugate(codefft)
@@ -164,42 +168,37 @@ def findSat(data, code, bins, tracking = False):
         rmsPowerdB = 10*np.log10(np.mean(resultSQ))
         resultdB = 10*np.log10(resultSQ)
 
-        #maxAbsSquared = np.amax(resultSQ)
-        maxAbsSquaredInd = np.argmax(resultSQ)
-        phaseInTime = maxAbsSquaredInd/data.sampleFreq
-        phaseInChips = phaseInTime*1.023*10**6
-        phaseInChips = 1023 - phaseInChips%1023
-
-        codePhase = np.argmax(resultSQ[0:4092])
-
-        maxdB = np.amax(resultdB)
-        maxdBInd = np.argmax(resultdB)
-
-        peakTodBRatio = maxdB - rmsPowerdB
+        codePhaseInSamples = np.argmax(resultSQ[0:4092])
 
         # Search for secondlargest value in 1 ms worth of data
         secondLargestValue = _GetSecondLargest(resultSQ[0:int(data.sampleFreq*0.001)])
 
         # Pseudo SNR
-        peakToSecond = (10*np.log10(np.amax(resultSQ) / secondLargestValue))
+        firstPeak = np.amax(resultSQ[0:4092])
+        peakToSecond =  10*np.log10(  firstPeak/secondLargestValue  )
+
+        curSatInfo.PeakToSecond.append(peakToSecond)
 
         #if tracking is True:
         peakToSecondList[n] = peakToSecond
-
-        #SatInfo[satInd].dBPeakToMean.append(PeakTodBRatio)
+        codePhaseList[n] = codePhaseInSamples
 
         # Don't print data when correlation is probably not happening
         if peakToSecond > SNR_THRESHOLD:
-            print("Possible acquisition: Freq: %8.4f, PeakToMean: %8.4f, PeakToSecond: %8.4f, \
-                  Phase (samples): %8.4f"%(curFreq, peakTodBRatio, peakToSecond, codePhase)) #phaseInChips))
+            print("Possible acquisition: Freq: %8.4f, Peak2Second: %8.4f, Code Phase (samples): %8.4f"
+                  %(curFreq, peakToSecond, codePhaseInSamples))
 
         freqInd = freqInd + 1
 
         # Percentage Output
         print("%02d%%"%((n/N)*100), end="\r")
     maxFreqThisSat = bins[np.argmax(peakToSecondList)]
-
-    return (maxFreqThisSat, peakToSecondList)
+    codePhaseThisSat = codePhaseList[np.argmax(peakToSecondList)]
+    curSatInfo.DopplerHz = maxFreqThisSat
+    curSatInfo.CodePhaseSamples = codePhaseThisSat
+    L1SampleRatio = (1.023*10**6)/(4.092*10**6)
+    curSatInfo.CodePhaseChips = 1023 - L1SampleRatio*codePhaseThisSat
+    return curSatInfo
 
 
 
@@ -233,7 +232,7 @@ def _outputplot(ratios):
 
     plt.xlim([0, len(ratios) + 1])
     plt.title('Acquisition Results')
-    plt.ylabel('Ratio of top 2 peaks (dB)')
+    plt.ylabel('Ratio of top 2 peaks (abs squared)')
     plt.xlabel('Satellite')
     plt.show()
 
