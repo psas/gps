@@ -73,9 +73,8 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
 
     numberOfMilliseconds = data.sampleTime * 1000
 
-
     # Create list of C/A code Taps, for simpler sat selection",
-    sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 5), (0, 7), (1, 8), (2, 9), (1, 2),
+    sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 9), (0, 7), (1, 8), (2, 9), (1, 2),
            (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 3), (1, 4), (2, 5), (3, 6),
            (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
            (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
@@ -209,7 +208,7 @@ def findSat(data, code, bins, tracking = False):
 def _outputTable(satInfoList):
     print("|-----+---------+----------+------------+---------+------------+------------|")
     print("| PRN | Max SNR | Peak-To- | P2S / P2S- | Doppler | Code Phase | Code Phase |")
-    print("| PRN |  (dB)   |  Second  | mean [dB]] |   [Hz]  |   [Chips]  |  [Samples] |")
+    print("|     |  (dB)   |  Second  | mean [dB]] |   [Hz]  |   [Chips]  |  [Samples] |")
     print("|-----+---------+----------+------------+---------+------------+------------|")
     for i in range(1,33):
         P2SToMeanP2SdB = 10*np.log10(  np.amax(satInfoList[i].PeakToSecond)/np.mean(satInfoList[i].PeakToSecond)  )
