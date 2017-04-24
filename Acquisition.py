@@ -36,6 +36,7 @@ def main():
 
 class SatStats:
     def __init__(self):
+        self.MaxSNR = None
         self.DopplerHz = None
         self.CodePhaseSamples  = None
         self.CodePhaseChips = None
@@ -118,6 +119,7 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
         satInd = satInd+1
     if show_final_plot:
         _outputplot(maxVals)
+        _outputTable(satInfoList)
     return satInfoList
 
 def findSat(data, code, bins, tracking = False):
@@ -146,6 +148,8 @@ def findSat(data, code, bins, tracking = False):
     #if tracking is True:
     peakToSecondList = np.zeros(len(bins))
     codePhaseList = np.zeros(len(bins))
+    SNRList = np.zeros(len(bins))
+
     codefft = np.fft.fft(code, data.Nsamples)
 
     GCConj = np.conjugate(codefft)
@@ -182,6 +186,7 @@ def findSat(data, code, bins, tracking = False):
         #if tracking is True:
         peakToSecondList[n] = peakToSecond
         codePhaseList[n] = codePhaseInSamples
+        SNRList[n] = 10*np.log10(  firstPeak/np.mean(resultSQ)  )
 
         # Don't print data when correlation is probably not happening
         if peakToSecond > SNR_THRESHOLD:
@@ -194,6 +199,8 @@ def findSat(data, code, bins, tracking = False):
         print("%02d%%"%((n/N)*100), end="\r")
     maxFreqThisSat = bins[np.argmax(peakToSecondList)]
     codePhaseThisSat = codePhaseList[np.argmax(peakToSecondList)]
+    maxSNRThisSat = SNRList[np.argmax(peakToSecondList)]
+    curSatInfo.MaxSNR = maxSNRThisSat
     curSatInfo.DopplerHz = maxFreqThisSat
     curSatInfo.CodePhaseSamples = codePhaseThisSat
     L1SampleRatio = (1.023*10**6)/(4.092*10**6)
@@ -201,7 +208,16 @@ def findSat(data, code, bins, tracking = False):
     return curSatInfo
 
 
-
+def _outputTable(satInfoList):
+    print("|-----+---------------+--------------+--------------+--------------------+----------------------|")
+    print("| PRN | Max SNR (dB)  | P2StoP2Smean | Doppler [Hz] | Code Phase [Chips] | Code Phase [Samples] |")
+    print("|-----+---------------+--------------+--------------+--------------------+----------------------|")
+    for i in range(1,33):
+        P2SToMeanP2SdB = 10*np.log10(  np.amax(satInfoList[i].PeakToSecond)/np.mean(satInfoList[i].PeakToSecond)  )
+        if P2SToMeanP2SdB >= 7:
+            print("| %2d     %8.3f        %8.3f       %6d           %9.3f               %6d         |"
+                  %(i,satInfoList[i].MaxSNR, P2SToMeanP2SdB , satInfoList[i].DopplerHz,satInfoList[i].CodePhaseChips, satInfoList[i].CodePhaseSamples))
+    print("|-----+---------------+--------------+--------------+--------------------+----------------------|")
 
 
 def _outputplot(ratios):
