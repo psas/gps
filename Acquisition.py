@@ -209,8 +209,42 @@ def findSat(data, code, bins, tracking = False):
     if np.amax(curSatInfo.PeakToSecond) >= 3:
         curSatInfo.Acquired = True
 
+    # Get fine-frequency (If acquired):
+    if curSatInfo.Acquired == True:
+        GetFineFrequency(data.CData,curSatInfo)
+
     return curSatInfo
 
+def GetFineFrequency(data, SatInfo):
+    # Performs fine-frequency estimation. In this case, data will be a slice
+    # of data (probably same length of data that was used in the circular
+    # cross-correlation)
+
+    N = len(data)
+    Ts = 1/(4.092*10**6)
+
+    # Create list of the three frequencies to test for medium-frequency estimation.
+    k = []
+    k.append(SatInfo.DopplerHz - 400*10**3)
+    k.append(SatInfo.DopplerHz)
+    k.append(SatInfo.DopplerHz + 400*10**3)
+
+    # Create sampled time array for DFT
+    nTs = np.linspace(0,Ts*N,N,endpoint=False)
+
+    # Perform DFT at each of the three frequencies.
+    X = []
+    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[0]*nTs)))**2)
+    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[1]*nTs)))**2)
+    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[2]*nTs)))**2)
+
+    # Store the frequency value that has the largest power
+    kLargest = k[np.argmax(X)]
+
+    print(kLargest) # Will remove. Temporarily for debugging purposes.
+
+    FineFrequencyEst = 0 # Just a placeholder.
+    return FineFrequencyEst
 
 def _outputTable(satInfoList):
     print("|-----+---------+----------+------------+---------+------------+------------|")
@@ -219,7 +253,7 @@ def _outputTable(satInfoList):
     print("|-----+---------+----------+------------+---------+------------+------------|")
     for i in range(1,33):
         P2SToMeanP2SdB = 10*np.log10(  np.amax(satInfoList[i].PeakToSecond)/np.mean(satInfoList[i].PeakToSecond)  )
-        if satInfoList[i].Acquired == True: 
+        if satInfoList[i].Acquired == True:
             print("| %2d  %8.3f  %8.3f    %8.3f      %6d    %9.3f    %6d     |"
                   %(i,satInfoList[i].MaxSNR, np.amax(satInfoList[i].PeakToSecond), P2SToMeanP2SdB , satInfoList[i].DopplerHz,satInfoList[i].CodePhaseChips, satInfoList[i].CodePhaseSamples))
     print("|-----+---------+----------+------------+---------+------------+------------|")
