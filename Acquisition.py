@@ -36,8 +36,10 @@ def main():
 
 class SatStats:
     def __init__(self):
+        self.Acquired = False
         self.MaxSNR = None
         self.DopplerHz = None
+        self.FineFrequencyEstimate = None
         self.CodePhaseSamples  = None
         self.CodePhaseChips = None
         self.PeakToSecond = []
@@ -202,6 +204,11 @@ def findSat(data, code, bins, tracking = False):
     curSatInfo.CodePhaseSamples = codePhaseList[peakToSecondMaxBin]
     L1SampleRatio = (1.023*10**6)/(4.092*10**6)
     curSatInfo.CodePhaseChips = 1023 - L1SampleRatio*curSatInfo.CodePhaseSamples
+
+    # Check if Acquisition was successful for this satellite
+    if np.amax(curSatInfo.PeakToSecond) >= 3:
+        curSatInfo.Acquired = True
+
     return curSatInfo
 
 
@@ -212,7 +219,7 @@ def _outputTable(satInfoList):
     print("|-----+---------+----------+------------+---------+------------+------------|")
     for i in range(1,33):
         P2SToMeanP2SdB = 10*np.log10(  np.amax(satInfoList[i].PeakToSecond)/np.mean(satInfoList[i].PeakToSecond)  )
-        if P2SToMeanP2SdB >= 7: # Could also use PeakToSecond ratio here, etc.
+        if satInfoList[i].Acquired == True: 
             print("| %2d  %8.3f  %8.3f    %8.3f      %6d    %9.3f    %6d     |"
                   %(i,satInfoList[i].MaxSNR, np.amax(satInfoList[i].PeakToSecond), P2SToMeanP2SdB , satInfoList[i].DopplerHz,satInfoList[i].CodePhaseChips, satInfoList[i].CodePhaseSamples))
     print("|-----+---------+----------+------------+---------+------------+------------|")
