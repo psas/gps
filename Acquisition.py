@@ -45,7 +45,7 @@ class SatStats:
         self.PeakToSecond = []
 
 
-def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
+def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
             show_final_plot=True, save_sat_results=False):
     '''
     Searches for GPS satellites in a raw IQ stream. File must be encodede to the
@@ -73,7 +73,7 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
     '''
     #Choose what frequencies and satellites to increment over
 
-    numberOfMilliseconds = data.sampleTime * 1000
+    numberOfMilliseconds = block_size_ms
 
     # Create list of C/A code Taps, for simpler sat selection",
     sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 9), (0, 7), (1, 8), (2, 9), (1, 2),
@@ -82,7 +82,6 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
            (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
 
     # Create array to store max values, freq ranges, per satellite
-    #SatMax = np.zeros((len(SatelliteList),len(FrequencyList),4))
     satInfoList = []
     for x in range(33):
         satInfoList.append(SatStats())
@@ -102,7 +101,8 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
         # Repeat entire array for each ms of data sampled
         CACodeSampled = np.tile(CACode, int(numberOfMilliseconds))
 
-        acqResult = findSat(data, CACodeSampled, bin_list)
+        #CHECK
+        acqResult = findSat(data, CACodeSampled, bin_list, block_size_ms)
         satInfoList[satInd+1] = acqResult
 
         if save_sat_results:
@@ -123,7 +123,7 @@ def acquire(data, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
         _outputTable(satInfoList)
     return satInfoList
 
-def findSat(data, code, bins, tracking = False):
+def findSat(data,  code, bins, block_size_ms=14,tracking = False):
     '''
     Searches IQ Data for a single satellite across all specified frequencies.
 
@@ -141,6 +141,9 @@ def findSat(data, code, bins, tracking = False):
     object containing acquisition results for the satellite
 
     '''
+    dataBlock = data.CData[0:(4092*block_size_ms)]
+    timeBlock = data.t[0:(4092*block_size_ms)]
+    NsamplesBlock = 4092*block_size_ms
 
     # Place to store current satellite information
     curSatInfo = SatStats()
@@ -151,7 +154,7 @@ def findSat(data, code, bins, tracking = False):
     codePhaseList = np.zeros(len(bins))
     SNRList = np.zeros(len(bins))
 
-    codefft = np.fft.fft(code, data.Nsamples)
+    codefft = np.fft.fft(code, len(dataBlock))
 
     GCConj = np.conjugate(codefft)
     N = len(bins)
@@ -159,14 +162,14 @@ def findSat(data, code, bins, tracking = False):
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
         # Initialize complex array
-        CDataShifted = np.zeros(len(data.CData), dtype=np.complex)
+        CDataShifted = np.zeros(len(dataBlock), dtype=np.complex)
 
         # Shift frequency using complex exponential
-        CDataShifted = data.CData*np.exp(-1j*2*np.pi*curFreq*data.t)
+        CDataShifted = dataBlock*np.exp(-1j*2*np.pi*curFreq*timeBlock)
 
-        fftCDataShifted = np.fft.fft(CDataShifted, data.Nsamples)
+        fftCDataShifted = np.fft.fft(CDataShifted, NsamplesBlock)
 
-        result = np.fft.ifft(GCConj * fftCDataShifted, data.Nsamples)
+        result = np.fft.ifft(GCConj * fftCDataShifted, NsamplesBlock)
 
         resultSQ = np.real(result * np.conjugate(result))
 
@@ -206,22 +209,35 @@ def findSat(data, code, bins, tracking = False):
     curSatInfo.CodePhaseChips = 1023 - L1SampleRatio*curSatInfo.CodePhaseSamples
 
     # Check if Acquisition was successful for this satellite
-    if np.amax(curSatInfo.PeakToSecond) >= 3:
+    if np.amax(curSatInfo.PeakToSecond) >= 5.5:
         curSatInfo.Acquired = True
 
     # Get fine-frequency (If acquired):
     if curSatInfo.Acquired == True:
-        GetFineFrequency(data.CData,curSatInfo)
+        # Already have a CA code that is at least 1 ms in length
+        CACode = code[0:4092] # store first ms
+
+        # Repeat entire array 5 times for 5 ms
+        code5ms = np.tile(CACode, int(5))
+
+        GetFineFrequency(data,curSatInfo,code5ms)
 
     return curSatInfo
 
-def GetFineFrequency(data, SatInfo):
+def GetFineFrequency(data, SatInfo, code5ms): # now passed in data class
     # Performs fine-frequency estimation. In this case, data will be a slice
     # of data (probably same length of data that was used in the circular
     # cross-correlation)
 
-    N = len(data)
-    Ts = 1/(4.092*10**6)
+    fs = 4.092*10**6
+    Ts = 1/fs
+
+    # Medium-frequency estimation data length (1ms in book, but may need to used
+    # the data length from acquisition)
+    numMSmf = 1 # num ms for medium-frequency estimation
+    Nmf = int(np.ceil(numMSmf*0.001*fs))  # num of samples to use for medium-frequency estimation (and DFT)
+
+    dataMF = data.CData[0:(4092*numMSmf)]
 
     # Create list of the three frequencies to test for medium-frequency estimation.
     k = []
@@ -230,18 +246,62 @@ def GetFineFrequency(data, SatInfo):
     k.append(SatInfo.DopplerHz + 400*10**3)
 
     # Create sampled time array for DFT
-    nTs = np.linspace(0,Ts*N,N,endpoint=False)
+    nTs = np.linspace(0,Ts*(Nmf + 1),Nmf,endpoint=False)
 
     # Perform DFT at each of the three frequencies.
     X = []
-    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[0]*nTs)))**2)
-    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[1]*nTs)))**2)
-    X.append(np.abs(sum(np.exp(-2*np.pi*1j*k[2]*nTs)))**2)
+    X.append(np.abs(sum(dataMF*np.exp(-2*np.pi*1j*k[0]*nTs)))**2)
+    X.append(np.abs(sum(dataMF*np.exp(-2*np.pi*1j*k[1]*nTs)))**2)
+    X.append(np.abs(sum(dataMF*np.exp(-2*np.pi*1j*k[2]*nTs)))**2)
 
     # Store the frequency value that has the largest power
     kLargest = k[np.argmax(X)]
+    print("Largest of three frequencies: %f"%kLargest) # Will remove. Temporarily for debugging purposes.
 
-    print(kLargest) # Will remove. Temporarily for debugging purposes.
+    # Get 5 ms of consecutive data, starting at beginning of CA Code
+    CACodeBeginning = int(SatInfo.CodePhaseSamples)
+    data5ms = data.CData[CACodeBeginning:int(5*4092) + CACodeBeginning]
+
+    # Get 5 ms of CA Code, with no rotation performed.
+    # passed in from function (code5ms)
+
+    # Multiply data with ca code to get cw signal
+    dataCW = data5ms*code5ms
+
+    # Perform DFT on each of the ms of data (5 total), at kLargest frequency.
+    # Uses variables from medium-frequency, so if they change, may need to re-create below.
+    X = []
+    PhaseAngle = []
+    for i in range(0,5):
+        X.append(sum(dataCW[i*4092:(i+1)*4092]*np.exp(-2*np.pi*1j*kLargest*nTs)))
+        PhaseAngle.append(np.arctan(np.imag(X[i])/np.real(X[i])))
+        print("Magnitude: %f" %X[i])
+        print("Phase Angle: %f" %PhaseAngle[i])
+
+    # Get difference angles
+    PhaseDiff = []
+    for i in range(1,5):
+        PhaseDiff.append(PhaseAngle[i]-PhaseAngle[i-1])
+        print("Phase difference %d, is: %f"%((i-1),PhaseDiff[i-1]))
+
+    # Adjust phases so magnitude not greater than 2.3*pi/5
+    # WIP
+    PhaseThreshold = (2.3*np.pi)/5
+    for (i,curPhaseDiff) in enumerate(PhaseDiff):
+        if np.abs(curPhaseDiff) > PhaseThreshold:
+            curPhaseDiff = PhaseDiff[i] - 2*np.pi
+            if np.abs(curPhaseDiff) > PhaseThreshold:
+                curPhaseDiff = PhaseDiff[i] + 2*np.pi
+                if np.abs(curPhaseDiff) > (2.2*np.pi)/5:
+                    curPhaseDiff = PhaseDiff[i] - np.pi
+                    if np.abs(curPhaseDiff) > PhaseThreshold:
+                        curPhaseDiff = PhaseDiff[i] - 3*np.pi
+                        if np.abs(curPhaseDiff) > PhaseThreshold:
+                            curPhaseDiff = PhaseDiff[i] + np.pi
+        PhaseDiff[i] = curPhaseDiff
+    fList = (np.array(PhaseDiff)/(2*np.pi*0.001))
+    print(fList)
+    print(np.mean(fList))
 
     FineFrequencyEst = 0 # Just a placeholder.
     return FineFrequencyEst
