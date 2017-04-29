@@ -6,6 +6,29 @@ highly recommend for background.
 
 This project is currently the focus of the 2017 ECE capstone team. The first objective is to create a Python prototype correlator. If time allows, the code will be ported to an embedded Rust implementation, and flown on the rocket as well as OreSat.
 
+# Progress
+
+- [ ] Python Protoype
+  - [x] Acquisition
+    - [x] Generate C/A Codes
+    - [x] Acquire satellite
+    - [x] Acquire satellites with Doppler shifts
+    - [x] Acquire all satellites in launch data
+  - [ ] Tracking
+    - [ ] Lock on to plain carrier signal
+    - [ ] Lock on to plain code signal
+    - [ ] Lock on to plain carrier + code signal
+    - [ ] Lock on to generated GPS satellite data
+    - [ ] Lock on to satellite signal from launch data
+  - [ ] Navigation 
+    - [ ] Interpret almanac data
+    - [ ] Use TOW to calculate coarse location
+    - [ ] Get precise location using code phase
+    - [ ] Track position changes (velocity)
+    - [ ] Kalman filter PVT data
+- [ ] Embedded Rust 
+ 
+
 # Documentation
 
 To learn more about the theory about how GPS and the software works, you can browse the Jupyter notebooks located in the /notebooks folder. 
@@ -40,7 +63,7 @@ These datafiles should have the following sats in them:
 For another source of raw GPS samples, try:
 - [SoftGPS Project](http://kom.aau.dk/project/softgps/data.php)
 - [(1.2GB) gnss-sdr project @ Sourceforge](http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download)
-- [(7+GB) From setiQuest SigBlips archive.] (http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/) See [here](http://www.acasper.org/2011/11/07/gps-signal-analysis/) for analysis of this data.
+- [(7+GB) From setiQuest SigBlips archive.](http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/) See [here](http://www.acasper.org/2011/11/07/gps-signal-analysis/) for analysis of this data.
 - [(3.2GB) 3 minutes of SV26 from setiQuest SigBlips archive](http://setiquest.org/setidata/data1/download/2010-01-22-gps-prn26)
 
 
