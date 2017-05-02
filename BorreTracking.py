@@ -332,7 +332,7 @@ if channel.PRN:
         if IP > 0.1:
             SatelliteData[ind] = 1
         elif IP < 0.1:
-            SatelliteData[ind] = -1
+            SatelliteData[ind] = 0
 
     plt.plot(SatelliteData)
     plt.title("In-phase Prompt per ms (shows data transitions)")
