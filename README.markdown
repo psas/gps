@@ -14,10 +14,10 @@ This project is currently the focus of the 2017 ECE capstone team. The first obj
     - [x] Acquire satellite
     - [x] Acquire satellites with Doppler shifts
     - [x] Acquire all satellites in launch data
-  - [ ] Tracking
-    - [ ] Lock on to plain carrier signal
-    - [ ] Lock on to plain code signal
-    - [ ] Lock on to plain carrier + code signal
+  - [x] Tracking
+    - [x] Lock on to plain carrier signal
+    - [x] Lock on to plain code signal
+    - [x] Lock on to plain carrier + code signal
     - [ ] Lock on to generated GPS satellite data
     - [ ] Lock on to satellite signal from launch data
   - [ ] Navigation 
