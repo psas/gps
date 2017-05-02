@@ -149,7 +149,10 @@ if channel.PRN:
 
     # Generate CA Code
     CACode = np.array(codeGen.getCode(1023, samplesPerChip=1))
-    CACode = np.tile(CACode,2)
+    #print(CACode)
+    CACode = np.append(CACode,CACode[0])
+    CACode = np.insert(CACode,0, CACode[len(CACode) - 2])
+    #print(CACode)
     # Perform additional initializations:
     codeFreq = settings.codeFreqBasis
 
@@ -199,16 +202,12 @@ if channel.PRN:
         #print(len(rawSignal))
 
         # Generate Prompt CA Code.
-        tStart = remCodePhase #+ 0.000000001
+        tStart = remCodePhase #+ 0.000000000001
         tStep = codePhaseStep
         tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep #+ 0.000000001
-
-        #tcode = np.arange(tStart,tEnd,tStep)
-        tcode = np.linspace(tStart,tEnd,blksize)
-        tcode[0] = tcode[0]+0.0000001
-        tcode2 = ( (np.ceil(tcode) + 1).astype(int) - 2).astype(int)
-        #print("Length of CA Code: %d" %len(tcode2))
-        promptCode = CACode[tcode2]
+        tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
+        tcode2 = ((np.ceil(tcode)).astype(int)).astype(int)
+        #print(tcode)
         #print(tcode2)
         #quit()
 
