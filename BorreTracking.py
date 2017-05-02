@@ -30,12 +30,12 @@ import matplotlib.pyplot as plt
 from GoldCode import GoldCode
 from GPSData import IQData
 
-np.set_printoptions(threshold=np.inf)
+#np.set_printoptions(threshold=np.inf)
 
 # Import data. Will read many ms at once, then process the blocks as needed.
 # Need these to pass to importFile module
 fs = 4.092*10**6 # Sampling Frequency [Hz]
-numberOfMilliseconds = 500
+numberOfMilliseconds = 4500
 sampleLength = numberOfMilliseconds*10**(-3)
 bytesToSkip = 0
 
@@ -61,7 +61,7 @@ def calcLoopCoef(LoopNoiseBandwidth, Zeta, LoopGain):
 
 class TrackingSettings:
     def __init__(self):
-        self.msToProcess = 400 # How many ms blocks to process per channel
+        self.msToProcess = 4400 # How many ms blocks to process per channel
         self.dllCorrelatorSpacing = 0.5 # How many chips to offset for E & L codes.
         self.codeLoopNoiseBandwidth = 2 # [Hz]
         self.codeZeta = 0.7
@@ -201,30 +201,53 @@ if channel.PRN:
         # data - better exit
         #print(len(rawSignal))
 
-        # Generate Prompt CA Code.
-        tStart = remCodePhase #+ 0.000000000001
+        # Generate Early CA Code.
+        tStart = remCodePhase - earlyLateSpacing
         tStep = codePhaseStep
-        tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep #+ 0.000000001
+        tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep - earlyLateSpacing
         tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
-        tcode2 = ((np.ceil(tcode)).astype(int)).astype(int)
+        tcode2 = (np.ceil(tcode)).astype(int)
+        earlyCode = CACode[tcode2]
+        #print(earlyCode)
         #print(tcode)
         #print(tcode2)
         #quit()
 
-        # Now roll by early late amount left and right for Late and Early codes
-        earlyCode = np.roll(promptCode,-2) # -2
-        lateCode = np.roll(promptCode,+2)  # +2
+        # Generate Late CA Code.
+        tStart = remCodePhase + earlyLateSpacing
+        tStep = codePhaseStep
+        tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep + earlyLateSpacing
+        tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
+        tcode2 = (np.ceil(tcode)).astype(int)
+        lateCode = CACode[tcode2]
+        #print(earlyCode)
+        #print(tcode)
+        #print(tcode2)
+        #quit()
 
-        # Figure out remaining code phase:
+        # Generate Prompt CA Code.
         tStart = remCodePhase
         tStep = codePhaseStep
         tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep
-        tcode = np.linspace(tStart,tEnd,blksize)
+        tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
+        tcode2 = (np.ceil(tcode)).astype(int)
+        promptCode = CACode[tcode2]
+        #print(promptCode)
+        #print(tcode)
+        #print(tcode2)
+        #quit()
+
+        # Figure out remaining code phase (uses tcode from Prompt CA Code generation):
         remCodePhase = (tcode[blksize-1]) - 1023.00
+        if abs(remCodePhase) > codePhaseStep:
+            remCodePhase = sign(remCodePhase)*codePhaseStep
+        else:
+            remCodePhase = 0
+        #print("remCodePhase: %f" %remCodePhase)
         # The line above is not working properly. I believe the tcode array is
         # not correct, but will need to do some debugging, therefore the
         # remCodePhase is set to zero below, for the time being.
-        remCodePhase = 0
+        #remCodePhase = 0
         #print("New remCodePhase: %12.8f" %remCodePhase)
 
         # Generate the carrier frequency to mix the signal to baseband
@@ -304,7 +327,14 @@ if channel.PRN:
     plt.title("Quadrature int/dump vs. ms data block")
     plt.show()
 
-    plt.plot(trackResults.I_P[0:200])
+    SatelliteData = trackResults.I_P
+    for ind,IP in enumerate(SatelliteData):
+        if IP > 0.1:
+            SatelliteData[ind] = 1
+        elif IP < 0.1:
+            SatelliteData[ind] = -1
+
+    plt.plot(SatelliteData)
     plt.title("In-phase Prompt per ms (shows data transitions)")
     plt.show()
 
