@@ -105,6 +105,7 @@ class IQData:
         self.IData = []
         self.QData = []
 
+        n = 0
         # Loop until reach EOF (will also break of exceeds requested size)
         while SingleByte != "":
             I1, I2, Q1, Q2 = self._byteToIQPairs(ord(SingleByte))
@@ -114,9 +115,15 @@ class IQData:
             if (i >= TotalBytes):
                 break # Stop reading bytes if will exceed requested amount of samples
             SingleByte = fHandle.read(1)
+            pct = (n/TotalBytes)*100
+            if(pct % 1 == 0):
+                print("%2.0f percent read"%pct, end = '\r')
+            n += 1
+
 
         fHandle.close()
-        print("File is now closed.")
+        print()
+        print("File Loaded")
 
         self._complexData()
         self._timeVector(self.bytesToSkip, Ts, seconds)
