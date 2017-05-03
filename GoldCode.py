@@ -77,9 +77,12 @@ def getCode(num, zero = False, samplesPerChip = 1, prn = 0):
         gsamp = np.repeat(g, samplesPerChip)
         return gsamp
     return g
-    
-def getTrackingCode():
-    pass
+
+def getTrackingCode(sat):
+    code = np.array(getCode(1023, prn = sats[sat - 1]))
+    code = np.append(code,code[0])
+    code = np.insert(code,0, code[len(code) - 2])
+    return code
 
 
 def getAcquisitionCode(sat, spc):

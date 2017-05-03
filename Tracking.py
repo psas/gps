@@ -30,7 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import Acquisition
 
-from GoldCode import GoldCode
+import GoldCode
 from GPSData import IQData
 
 #np.set_printoptions(threshold=np.inf)
@@ -120,37 +120,14 @@ class Channel:
         # Calculate filter coefficient values for carrier loop
         tau1carr, tau2carr = self._calcLoopCoef(self.carrLoopNoiseBandwidth, self.carrZeta, self.carrLoopGain)
 
-        # Initialize channel with data from acquisition
-        # Manually filling in these values from the simulated gps information (exact values) for now.
-        # Once working, will pass the values found from acquisition.
-        
-        self.PRN = 1
-        # For codePhase below, + 1 was added experimentally. This should be removed when code phase adjustment is working properly.
-         # Value from generator
-        #channel.codePhase = int(655.25*4) # Value from generator
-
-
         # Process each channel (Will impliment loop in future. For now only processing one channel)
         # Process channel if PRN is non-zero (Acquisition successful)
         if self.PRN:
             # Create instance of TrackingResults to store results into
          
-            
-            # Create sampled CA Code:
-            # Create list of C/A code Taps, for simpler sat selection",
-            sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 9), (0, 7), (1, 8), (2, 9), (1, 2),
-                (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 3), (1, 4), (2, 5), (3, 6),
-                (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
-                (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
 
-            codeGen = GoldCode(sat[self.PRN - 1]) # Index starts at zero
+            CACode = GoldCode.getTrackingCode(self.PRN)
 
-            # Generate CA Code
-            CACode = np.array(codeGen.getCode(1023, samplesPerChip=1))
-            #print(CACode)
-            CACode = np.append(CACode,CACode[0])
-            CACode = np.insert(CACode,0, CACode[len(CACode) - 2])
-            #print(CACode)
             # Perform additional initializations:
             codeFreq = self.codeFreqBasis
 
@@ -272,10 +249,9 @@ class Channel:
                 # Modify carrier freq based on NCO command
                 carrFreq = self.acquiredCarrFreq + carrNco
 
-                
-
                 # Find DLL error and update code NCO -------------------------------------
-                codeError = (np.sqrt(I_E * I_E + Q_E * Q_E) - np.sqrt(I_L * I_L + Q_L * Q_L)) / (np.sqrt(I_E * I_E + Q_E * Q_E) + np.sqrt(I_L * I_L + Q_L * Q_L))
+                codeError = (np.sqrt(I_E * I_E + Q_E * Q_E) - np.sqrt(I_L * I_L + Q_L * Q_L)) /\
+                            (np.sqrt(I_E * I_E + Q_E * Q_E) + np.sqrt(I_L * I_L + Q_L * Q_L))
 
                 # Implement code loop filter and generate NCO command
                 codeNco = oldCodeNco + (tau2code/tau1code) * (codeError - oldCodeError) + codeError * (self.PDIcode/tau1code)
