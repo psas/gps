@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-from GoldCode import GoldCode
+import GoldCode
 from GPSData import IQData
 
 def main():
@@ -91,15 +91,9 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
     # Loop through selected satellites
     for curSat in sat_list:
         print("Searching for SV " + str(curSat) + "...")
-        # Create Code Generator object for chosen Satellite
-        codeGen = GoldCode(sat[curSat - 1]) # Index starts at zero
-
-        # Generate CA Code
-        CACode = codeGen.getCode(1023, samplesPerChip=4)
-
-
-        # Repeat entire array for each ms of data sampled
-        CACodeSampled = np.tile(CACode, int(numberOfMilliseconds))
+        
+        #Grab a CA Code
+        CACodeSampled = GoldCode.getAcquisitionCode(curSat, 4)
 
         #CHECK
         acqResult = findSat(data, CACodeSampled, bin_list, block_size_ms)
