@@ -28,6 +28,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import Acquisition
 
 from GoldCode import GoldCode
 from GPSData import IQData
@@ -50,24 +51,32 @@ def main():
     #data.importFile('resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
     #data.importFile('resources/test4092kHz.max', fs, sampleLength, bytesToSkip)
     data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
+    
+    acqresult = Acquisition.SatStats()
+    acqresult.CodePhaseSamples = int((1023.0 - 630.251585)*4 + 1)
+    acqresult.FineFrequencyEstimate = -3340
+    acqresult.Sat = 1
 
-    channel1 = Channel(data)
+
+    channel1 = Channel(data, acqresult)
     channel1.Track()
 
 
 
 class Channel:
-    def __init__(self, datain, chartoutput = False):
+    def __init__(self, datain, acqData, chartoutput = True):
         #Acquisition inputs
-        self.PRN = 0 # Value will be non-zero if Acquisition was successful for this channel
-        self.CodePhase = None # Sample offset of beginning of CA code from acquisition
-        self.acquiredCarrFreq = -3340 # Doppler freq from acquisition
+       
         self.data = datain
-        
+        self.codePhase = acqData.CodePhaseSamples
+        self.acquiredCarrFreq = acqData.FineFrequencyEstimate
+        self.PRN = acqData.Sat # Value will be non-zero if Acquisition was successful for this channel
+
+
         self.progress = True #Output progress
         self.status = False # True if tracking was successful, False otherwise.
 
-        #Tracking Parameters
+        #Tracking Parameters (these should be moved to a .json,.xml,or .conf soon)
         self.msToProcess = 430 # How many ms blocks to process per channel
         self.earlyLateSpacing = 0.5 # How many chips to offset for E & L codes.
         self.codeLoopNoiseBandwidth = 2 # [Hz]
@@ -85,7 +94,7 @@ class Channel:
         self.PDIcarr = .001
 
 
-        #Tracking Result Parameters
+        #Tracking Result/Logging Parameters
         self.outputChart = chartoutput
         if chartoutput:
             #Preallocate space if charts are requested
@@ -117,7 +126,7 @@ class Channel:
         
         self.PRN = 1
         # For codePhase below, + 1 was added experimentally. This should be removed when code phase adjustment is working properly.
-        self.codePhase = int((1023.0 - 630.251585)*4 + 1) # Value from generator
+         # Value from generator
         #channel.codePhase = int(655.25*4) # Value from generator
 
 
