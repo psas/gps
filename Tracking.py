@@ -274,41 +274,46 @@ class Channel:
                     self.Q_L[loopCount] = Q_L
 
             if self.outputChart:
-                plt.plot(self.carrFreq)
-                plt.ylabel("PLL Frequency (Hz)")
-                plt.xlabel("t (ms)")
-                plt.title("Carrier frequency of NCO")
-                plt.show()
+                self._plotOutputs()
                 
-                plt.subplot(2,1,1)
-                plt.plot(self.I_E**2,label="I_E")
-                plt.plot(self.I_P**2,label="I_P")
-                plt.plot(self.I_L**2,label="I_L")
-                plt.title("DLL Inphase")
-                plt.legend()
-                
-                plt.subplot(2,1,2)
-                plt.plot(self.Q_E**2,label="Q_E")
-                plt.plot(self.Q_P**2,label="Q_P")
-                plt.plot(self.Q_L**2,label="Q_L")
-                plt.title("DLL Quadrature")
-                plt.xlabel("t (ms)")
-                plt.show()
 
-                SatelliteData = self.I_P
-                for ind,IP in enumerate(SatelliteData):
-                    if IP > 0.1:
-                        SatelliteData[ind] = 1
-                    elif IP < 0.1:
-                        SatelliteData[ind] = 0
+    def _plotOutputs(self):
+        plt.plot(self.carrFreq)
+        plt.ylabel("PLL Frequency (Hz)")
+        plt.xlabel("t (ms)")
+        plt.title("Carrier frequency of NCO")
+        plt.show()
+        
+        plt.subplot(2,1,1)
+        plt.plot(self.I_E**2,label="I_E")
+        plt.plot(self.I_P**2,label="I_P")
+        plt.plot(self.I_L**2,label="I_L")
+        plt.title("DLL Inphase")
+        plt.legend()
+        
+        plt.subplot(2,1,2)
+        plt.plot(self.Q_E**2,label="Q_E")
+        plt.plot(self.Q_P**2,label="Q_P")
+        plt.plot(self.Q_L**2,label="Q_L")
+        plt.title("DLL Quadrature")
+        plt.xlabel("t (ms)")
+        plt.show()
 
-                plt.plot(SatelliteData)
-                plt.ylim([-.5,1.5])
-                plt.title("50bps Navigation Data (from I_P)")
-                plt.show()
+        SatelliteData = self.I_P
+        for ind,IP in enumerate(SatelliteData):
+            if IP > 0.1:
+                SatelliteData[ind] = 1
+            elif IP < 0.1:
+                SatelliteData[ind] = 0
 
-                #plt.plot(self.pllDiscr)
-                #plt.show()
+        plt.plot(SatelliteData)
+        plt.ylim([-.5,1.5])
+        plt.title("50bps Navigation Data (from I_P)")
+        plt.show()
+
+        #plt.plot(self.pllDiscr)
+        #plt.show()
+
     def _calcLoopCoef(self, LoopNoiseBandwidth, Zeta, LoopGain):
         # Solve for the natural frequency
         Wn = LoopNoiseBandwidth*8*Zeta / (4*Zeta**2 + 1)
