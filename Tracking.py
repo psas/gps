@@ -348,7 +348,7 @@ class Channel:
             
         #Start integrating bits in groups of 20ms
         ptr = 0
-        bits = np.zeros(len(self.I_P/20))
+        bits = np.zeros(len(self.I_P)/20)
 
         for ind in range(startInd, len(self.I_P), 20):
             m = np.mean(self.I_P[ind:ind+20])
