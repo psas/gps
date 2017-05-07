@@ -60,6 +60,7 @@ def main():
 
     channel1 = Channel(data, acqresult)
     channel1.Track()
+    channel1._writeBits()
 
 
 
@@ -315,6 +316,9 @@ class Channel:
         #plt.show()
 
     def _calcLoopCoef(self, LoopNoiseBandwidth, Zeta, LoopGain):
+        '''
+        Calculates the loop coefficients tau1 and tau2
+        '''
         # Solve for the natural frequency
         Wn = LoopNoiseBandwidth*8*Zeta / (4*Zeta**2 + 1)
 
@@ -323,6 +327,56 @@ class Channel:
         tau2 = (2.0 * Zeta) / Wn;
 
         return (tau1, tau2)
+
+    def _writeBits(self, dr = '.', name = 'default'):
+        '''
+        Writes out the navigation data bits to a file
+        '''
+
+        if name == 'default':
+            name = 'SV%s.bin'%self.PRN
+        
+        # First find a bit transition to be the starting index of the integration
+        start = np.sign(self.I_P[0])
+
+        startInd = 0
+        for samp in self.I_P:
+            if (np.sign(samp) != start ):
+                break
+            else:
+                startInd += 1
+            
+        #Start integrating bits in groups of 20ms
+        ptr = 0
+        bits = np.zeros(len(self.I_P/20))
+
+        for ind in range(startInd, len(self.I_P), 20):
+            m = np.mean(self.I_P[ind:ind+20])
+            
+            if np.sign(m) == 1:
+                bits[ptr] = 1
+            elif np.sign(m) == -1:
+                bits[ptr] = 0
+            else:
+                pass
+                #raise BitsError(ind)
+            ptr += 1
+        
+        with open( '%s/%s'%(dr, name),'w') as f:
+            f.writelines(["%1d" % item  for item in bits])
+            print()
+            print("File written to: %s"%f.name)
+                
+
+        
+
+class BitsError(Exception):
+    def __init__(self, index):
+        self.message = "Integration Error at index %d"%index
+
+        print(self.message)
+
+
 
 if __name__ == "__main__":
     main()
