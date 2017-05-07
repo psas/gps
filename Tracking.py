@@ -362,8 +362,10 @@ class Channel:
                 #raise BitsError(ind)
             ptr += 1
         
+        #Write out the ms offset, followed by bitstream
         with open( '%s/%s'%(dr, name),'w') as f:
-            f.writelines(["%1d" % item  for item in bits])
+            f.write("%1d"%startInd) 
+            f.writelines(["%3d" % item  for item in bits])
             print()
             print("File written to: %s"%f.name)
                 
