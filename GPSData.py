@@ -5,8 +5,12 @@ use with the soft correlator.
 
 '''
 import numpy as np
+import configparser
 
 class IQData:
+'''
+Opens an IQ data stream stored in a file that is formatted as specified
+'''
 
     IData = []
     QData = []
@@ -15,6 +19,10 @@ class IQData:
     sampleFreq = 0
     sampleTime = 0
     Nsamples   = 0
+
+    def __init__(self, FileDirectory):
+        self.dir = FileDirectory
+    
 
     def _byteToIQPairs(self, TheByte ):
 
@@ -115,6 +123,7 @@ class IQData:
             if (i >= TotalBytes):
                 break # Stop reading bytes if will exceed requested amount of samples
             SingleByte = fHandle.read(1)
+            
             pct = (n/TotalBytes)*100
             if(pct % 1 == 0):
                 print("%2.0f percent read"%pct, end = '\r')
