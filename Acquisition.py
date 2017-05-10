@@ -9,6 +9,7 @@ GPS signal acquisition
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+import configparser
 
 import GoldCode
 from GPSData import IQData
@@ -94,10 +95,7 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
     object containing acquisition results
 
     '''
-    #Choose what frequencies and satellites to increment over
-
-    numberOfMilliseconds = block_size_ms
-
+    
     
     # Create array to store max values, freq ranges, per satellite
     satInfoList = []
@@ -130,6 +128,7 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
         maxVals[satInd + 1] = np.amax(satInfoList[satInd+1].PeakToSecond)
 
         satInd = satInd+1
+
     if show_final_plot:
         _outputplot(maxVals)
         _outputTable(satInfoList)
@@ -173,7 +172,7 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
     GCConj = np.conjugate(codefft)
     
     N = len(bins)
-    freqInd = 0
+    freqIn = 0
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
         
