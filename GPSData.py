@@ -6,23 +6,155 @@ use with the soft correlator.
 '''
 import numpy as np
 import configparser
+import os
+
+global d
+
+def main():
+    d = IQData('./resources/Single4092KHz5s.max')
+
 
 class IQData:
-'''
-Opens an IQ data stream stored in a file that is formatted as specified
-'''
+    '''
+    Opens an IQ data stream stored in a file that is formatted as specified
+    '''
 
     IData = []
     QData = []
     CData = []
 
-    sampleFreq = 0
+    # generator pointer
+    fptr = -1
+
+    sampleFreq = 4.092e6
     sampleTime = 0
     Nsamples   = 0
 
     def __init__(self, FileDirectory):
         self.dir = FileDirectory
+
+        #Read sampleFreq from .config
+        self.sampleTime = 1 / self.sampleFreq
     
+    def complexSec(self, Start = -1, Time = .001):
+        '''
+        Generator function that reads and returns the next 1ms section of data in the file
+
+        # Inputs
+        
+        ## kwArgs
+        Start: starting point of file, defaults to -1 which starts from self.fptr
+
+        Time: size of slice in seconds
+        '''
+        arrayLen = int(Time * self.sampleFreq)
+
+        print("Opening a file for reading")
+        with open(self.dir,'rb') as fHandle:
+            fileSize = os.path.getsize(self.dir)
+
+            #Start from where we left off if Start is -1
+            if Start == -1:
+                if self.fptr == -1:
+                    self.fptr = 0
+                    Start = 0
+            else:
+                self.fptr = Start
+            
+            #Ending position calculation
+            endAt = self.fptr + (arrayLen / 2 )
+            
+            #Go to starting position and read the first byte
+            fHandle.seek(self.fptr)
+            singleByte = fHandle.read(1)
+            self.fptr += 1 # Increment current position
+            
+            #Init index and EOF flag
+            i = 0
+            readeof = False
+            while(readeof == False):
+                
+                #Init data and time arrays
+                arrayOut = np.zeros(arrayLen, dtype=complex)
+                t = np.zeros(arrayOut)
+                while singleByte != "":
+                    
+                    #Convert byte to data, and the format and place in array (2 at a time)
+                    I1, I2, Q1, Q2 = self._byteToIQPairs(ord(singleByte))
+                    arrayOut[i] = I1 + Q1 * 1j
+                    arrayOut[i + 1] = I2 + Q2 * 1j
+                    i += 2
+
+                    #Exit if we are at the end of the file
+                    if (self.fptr >= fileSize):
+                        print('EOF reached')
+                        readeof = True
+                        break # Stop reading bytes if will exceed requested amount of samples
+
+                    #Yield array and reset once we have 1ms of data
+                    if (self.fptr >= endAt ):
+                        #print('done')
+                        yield arrayOut
+                        endAt += arrayLen / 2
+                        i = 0
+                        arrayOut = np.zeros(arrayLen, dtype=complex) 
+                        
+                    #Get the next byte to read in
+                    singleByte = fHandle.read(1)
+                    self.fptr += 1 # Increment current position
+                    
+
+    def complexData(StartFrom = 0, EndAt = np.inf):
+        '''
+        Generator function that returns the next complex number in the file
+        '''
+        print("Opening a file for generating")
+        fHandle = open(self.dir,'rb')
+        fileSize = os.path.getsize(self.dir)
+        
+        Ts = 1/fs # Sampling Period [s]
+        
+        
+        self.ptr = StartFrom
+        
+        # Go to requested starting position
+        fHandle.seek(StartFrom)
+
+        # Read a single byte to get started
+        SingleByte = fHandle.read(1)
+        
+
+        # Loop until reach EOF (will also break of exceeds requested size)
+        while SingleByte != "":
+            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(SingleByte))
+            
+            yield I1 + Q1 * 1j
+            yield I2 + Q2 * 1j
+
+            self.ptr += 1 # Increment current position
+            if (self.ptr >= fileSize):
+                break # Stop reading bytes if will exceed requested amount of samples
+
+            if (self.ptr >= EndAt ):
+                break
+            
+            #Read the next byte
+            SingleByte = fHandle.read(1)
+            
+            #Track the percentage
+            pct = (self.ptr/fileSize)*100
+            if(pct % 1 == 0):
+                print("%2.0f percent read"%pct, end = '\r')
+            
+
+
+        fHandle.close()
+        print()
+        print("File end reached")
+
+        self._complexData()
+        self._timeVector(self.bytesToSkip, Ts, seconds)
+
 
     def _byteToIQPairs(self, TheByte ):
 
@@ -164,3 +296,7 @@ Opens an IQ data stream stored in a file that is formatted as specified
         RealData = x1.real
         tReal = np.linspace(self.tStart, self.tEnd, self.Nsamples*2)
         return (tReal, RealData)
+
+
+if __name__ == "__main__":
+    main()
