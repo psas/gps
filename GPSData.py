@@ -16,7 +16,7 @@ class IQData:
     sampleTime = 0
     Nsamples   = 0
 
-    def _byteToIQPairs(self, TheByte ):
+    def _byteToIQPairs(self, TheByte, realOnly=False):
 
         # This code reads each of the four pairs of bits from the byte
         # and determines the sign and magnitude. Then it returns a list
@@ -26,25 +26,40 @@ class IQData:
         # This interpretation was taken by the sample code provided
         # in the PSAS Launch12 github repo (example was provided in C)
 
-        IMag1 = (TheByte >> 7) & (0b00000001)
-        ISign1 = (TheByte >> 6) & (0b00000001)
-        I1 = 1.0 if (IMag1 == 1) else 1.0/3.0
-        I1 = -I1 if (ISign1 == 1) else I1
+        if realOnly:
+            IMag1 = (TheByte >> 7) & (0b00000001)
+            ISign1 = (TheByte >> 6) & (0b00000001)
+            I1 = 1.0 if (IMag1 == 1) else 1.0/3.0
+            I1 = -I1 if (ISign1 == 1) else I1
 
-        QMag1 = (TheByte >> 5) & (0b00000001)
-        QSign1 = (TheByte >> 4) & (0b00000001)
-        Q1 = 1.0 if (QMag1 == 1) else 1.0/3.0
-        Q1 = -Q1 if (QSign1 == 1) else Q1
+            IMag2 = (TheByte >> 3) & (0b00000001)
+            ISign2 = (TheByte >> 2) & (0b00000001)
+            I2 = 1.0 if (IMag2 == 1) else 1.0/3.0
+            I2 = -I2 if (ISign2 == 1) else I2
 
-        IMag2 = (TheByte >> 3) & (0b00000001)
-        ISign2 = (TheByte >> 2) & (0b00000001)
-        I2 = 1.0 if (IMag2 == 1) else 1.0/3.0
-        I2 = -I2 if (ISign2 == 1) else I2
+            Q1 = 0
+            Q2 = 0
 
-        QMag2 = (TheByte >> 1) & (0b00000001)
-        QSign2 = (TheByte >> 0) & (0b00000001)
-        Q2 = 1.0 if (QMag2 == 1) else 1.0/3.0
-        Q2 = -Q2 if (QSign2 == 1) else Q2
+        else:
+            IMag1 = (TheByte >> 7) & (0b00000001)
+            ISign1 = (TheByte >> 6) & (0b00000001)
+            I1 = 1.0 if (IMag1 == 1) else 1.0/3.0
+            I1 = -I1 if (ISign1 == 1) else I1
+
+            QMag1 = (TheByte >> 5) & (0b00000001)
+            QSign1 = (TheByte >> 4) & (0b00000001)
+            Q1 = 1.0 if (QMag1 == 1) else 1.0/3.0
+            Q1 = -Q1 if (QSign1 == 1) else Q1
+
+            IMag2 = (TheByte >> 3) & (0b00000001)
+            ISign2 = (TheByte >> 2) & (0b00000001)
+            I2 = 1.0 if (IMag2 == 1) else 1.0/3.0
+            I2 = -I2 if (ISign2 == 1) else I2
+
+            QMag2 = (TheByte >> 1) & (0b00000001)
+            QSign2 = (TheByte >> 0) & (0b00000001)
+            Q2 = 1.0 if (QMag2 == 1) else 1.0/3.0
+            Q2 = -Q2 if (QSign2 == 1) else Q2
 
         return (I1, I2, Q1, Q2)
 
@@ -67,7 +82,7 @@ class IQData:
 
         self.t = np.linspace(self.tStart, self.tEnd, self.Nsamples)
 
-    def importFile(self, path, fs, seconds, bytestoskip):
+    def importFile(self, path, fs, seconds, bytestoskip, realOnly=False):
         '''
         imports IQ Data from a file
         fs is sampling frequency
@@ -84,7 +99,6 @@ class IQData:
 
         # Read file one byte at a time, extract the two
         # IQ pairs, and store in array, after conversion to float.
-        # Will initially read enough samples for ~20 ms of data
         Ts = 1/fs # Sampling Period [s]
         SampleLength = seconds # Sample length in 1ms multiples
         StartingByte = self.bytesToSkip # Can change this if we want to discard initial samples
@@ -92,7 +106,6 @@ class IQData:
         self.Nsamples = TotalSamples
         TotalBytes = int(np.ceil(TotalSamples/2))
         print("Total Samples to read: %d"%(TotalSamples))
-        print("Total Bytes read: %d." %(TotalBytes))
         print("Which equals %d IQ pairs." %(TotalBytes*2))
         print("Sample Length: %f seconds." %(TotalBytes*2*Ts))
 
@@ -102,15 +115,21 @@ class IQData:
 
         # Read a single byte to get started
         SingleByte = fHandle.read(1)
-        self.IData = []
-        self.QData = []
+        if realOnly: # If only processing and returning the IData
+            self.IData = []
+        else:
+            self.IData = []
+            self.QData = []
 
         n = 0
         # Loop until reach EOF (will also break of exceeds requested size)
         while SingleByte != "":
             I1, I2, Q1, Q2 = self._byteToIQPairs(ord(SingleByte))
-            self.IData.extend((I1, I2))
-            self.QData.extend((Q1, Q2))
+            if realOnly:
+                self.IData.extend((I1, I2))
+            else:
+                self.IData.extend((I1, I2))
+                self.QData.extend((Q1, Q2))
             i += 1 # Increment current position
             if (i >= TotalBytes):
                 break # Stop reading bytes if will exceed requested amount of samples
@@ -125,7 +144,8 @@ class IQData:
         print()
         print("File Loaded")
 
-        self._complexData()
+        if realOnly == False:
+            self._complexData()
         self._timeVector(self.bytesToSkip, Ts, seconds)
 
     def ComplexToReal(self,CData):
