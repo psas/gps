@@ -13,6 +13,179 @@ global d
 def main():
     d = IQData('./resources/Single4092KHz5s.max')
 
+class ComplexReturner:
+    stop = False
+    complexCarry = 1 + 0j
+
+    def __init__(self, FileDirectory, Skip = 0):
+        self.dir = FileDirectory
+        self.f = open(self.dir, 'rb')
+        
+        self.fptr = Skip
+        self.fsize = os.path.getsize(self.dir)
+        self.f.seek(self.fptr)
+
+    
+    def returnSampleArray(self, ArraySize):
+        returnArray = np.zeros(ArraySize, dtype=complex)
+
+        if self.complexCarry != (0 + 0j):
+            returnArray[0] = self.complexCarry
+            self.complexCarry = 0+0j
+            i = 1
+        else:
+            i = 0
+        
+        while i < ArraySize:
+            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(self.f.read(1)))
+            returnArray[i] = I1 + Q1 * 1j
+            i += 1
+            try:
+                returnArray[i] = I2 + Q2 * 1j
+                
+            except IndexError:
+                #If there is not room for the last sample, save it for
+                #the next one
+                print('carrying')
+                self.complexCarry = I2 + Q2 * 1j
+
+        
+        return returnArray
+
+    def _byteToIQPairs(self, TheByte ):
+
+        # This code reads each of the four pairs of bits from the byte
+        # and determines the sign and magnitude. Then it returns a list
+        # containing two pairs of IQ data as floating point [I1,Q1,I2,Q2].
+        # For magnitude: a bit value of 1 means mag 1, 0 means mag 1/3
+        # For sign: a bit value of 1 means negative, 0 means positive
+        # This interpretation was taken by the sample code provided
+        # in the PSAS Launch12 github repo (example was provided in C)
+
+        IMag1 = (TheByte >> 7) & (0b00000001)
+        ISign1 = (TheByte >> 6) & (0b00000001)
+        I1 = 1.0 if (IMag1 == 1) else 1.0/3.0
+        I1 = -I1 if (ISign1 == 1) else I1
+
+        QMag1 = (TheByte >> 5) & (0b00000001)
+        QSign1 = (TheByte >> 4) & (0b00000001)
+        Q1 = 1.0 if (QMag1 == 1) else 1.0/3.0
+        Q1 = -Q1 if (QSign1 == 1) else Q1
+
+        IMag2 = (TheByte >> 3) & (0b00000001)
+        ISign2 = (TheByte >> 2) & (0b00000001)
+        I2 = 1.0 if (IMag2 == 1) else 1.0/3.0
+        I2 = -I2 if (ISign2 == 1) else I2
+
+        QMag2 = (TheByte >> 1) & (0b00000001)
+        QSign2 = (TheByte >> 0) & (0b00000001)
+        Q2 = 1.0 if (QMag2 == 1) else 1.0/3.0
+        Q2 = -Q2 if (QSign2 == 1) else Q2
+
+        return (I1, I2, Q1, Q2)
+
+class ComplexReader:
+    '''
+    Reads in complex data from a file using less memory
+    '''
+
+    NumSamples = 4092
+
+    def __init__(self, FileDirectory, Skip = 0):
+        self.dir = FileDirectory
+        #self.f = open(self.dir, 'rb')
+        
+        self.fptr = Skip
+        #Read sampleFreq from .config
+        #self.sampleTime = 1 / self.sampleFreq
+
+    def trackingSegment(self):
+         
+         with open(self.dir, 'rb') as fHandle:
+            fileSize = os.path.getsize(self.dir)
+
+                        
+            #Go to starting position and read the first byte
+            fHandle.seek(self.fptr)
+            singleByte = fHandle.read(1)
+            self.fptr += 1 # Increment current position
+            #arrayLen = self.N   
+            
+            #Ending position calculation
+            endpoint = self.fptr + (self.NumSamples / 2 )
+            arrayOut = np.zeros(self.NumSamples, dtype=complex)
+
+            
+            #Init index and EOF flag
+            i = 0
+            readeof = False
+       
+            while(readeof == False):
+                while singleByte != "":
+                    
+                    #Convert byte to data, and the format and place in array (2 at a time)
+                    I1, I2, Q1, Q2 = self._byteToIQPairs(ord(singleByte))
+                    arrayOut[i] = I1 + Q1 * 1j
+                    try:
+                        arrayOut[i + 1] = I2 + Q2 * 1j
+                        i += 2
+                    except IndexError:
+                        oddLen = True
+
+                    
+
+                    #Exit if we are at the end of the file
+                    if (self.fptr >= fileSize):
+                        print('EOF reached')
+                        readeof = True
+                        break # Stop reading bytes if will exceed requested amount of samples
+
+                    #Yield array and reset once e have 1ms of data
+                    if (self.fptr >= endpoint - 1):
+                        #print('done')
+                        yield arrayOut
+                        endpoint += self.NumSamples / 2
+                        i = 0
+                        
+                        print('setting array to' + str(self.NumSamples))
+                        arrayOut = np.zeros(self.NumSamples, dtype=complex) 
+                        
+                    #Get the next byte to read in
+                    singleByte = fHandle.read(1)
+                    self.fptr += 1 # Increment current position
+
+    def _byteToIQPairs(self, TheByte ):
+
+        # This code reads each of the four pairs of bits from the byte
+        # and determines the sign and magnitude. Then it returns a list
+        # containing two pairs of IQ data as floating point [I1,Q1,I2,Q2].
+        # For magnitude: a bit value of 1 means mag 1, 0 means mag 1/3
+        # For sign: a bit value of 1 means negative, 0 means positive
+        # This interpretation was taken by the sample code provided
+        # in the PSAS Launch12 github repo (example was provided in C)
+
+        IMag1 = (TheByte >> 7) & (0b00000001)
+        ISign1 = (TheByte >> 6) & (0b00000001)
+        I1 = 1.0 if (IMag1 == 1) else 1.0/3.0
+        I1 = -I1 if (ISign1 == 1) else I1
+
+        QMag1 = (TheByte >> 5) & (0b00000001)
+        QSign1 = (TheByte >> 4) & (0b00000001)
+        Q1 = 1.0 if (QMag1 == 1) else 1.0/3.0
+        Q1 = -Q1 if (QSign1 == 1) else Q1
+
+        IMag2 = (TheByte >> 3) & (0b00000001)
+        ISign2 = (TheByte >> 2) & (0b00000001)
+        I2 = 1.0 if (IMag2 == 1) else 1.0/3.0
+        I2 = -I2 if (ISign2 == 1) else I2
+
+        QMag2 = (TheByte >> 1) & (0b00000001)
+        QSign2 = (TheByte >> 0) & (0b00000001)
+        Q2 = 1.0 if (QMag2 == 1) else 1.0/3.0
+        Q2 = -Q2 if (QSign2 == 1) else Q2
+
+        return (I1, I2, Q1, Q2)
+
 
 class IQData:
     '''
@@ -23,8 +196,16 @@ class IQData:
     QData = []
     CData = []
 
+    BUF_SIZE = 100000 #100k is about 1.6 MB
+    CDataBuf = np.zeros(BUF_SIZE, dtype=complex)
+    bufptr = 0
+    
     # generator pointer
     fptr = -1
+
+    NS = 4092
+
+    complexCarry = 1 + 0j 
 
     sampleFreq = 4.092e6
     sampleTime = 0
@@ -32,10 +213,57 @@ class IQData:
 
     def __init__(self, FileDirectory):
         self.dir = FileDirectory
+        self.f = open(self.dir, 'rb')
+        i = 0
+        while i < self.BUF_SIZE:
+            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(self.f.read(1)))
+            self.CDataBuf[i] = I1 + Q1 * 1j
+            self.CDataBuf[i + 1] = I2 + Q2 * 1j
+            i += 2
 
         #Read sampleFreq from .config
         self.sampleTime = 1 / self.sampleFreq
     
+
+    def getComplexData(self, Samples):
+        '''
+        returns complex data array of specified length
+
+        '''
+        #make sure there is enough room in buffer
+        if self.BUF_SIZE - self.bufptr < Samples:
+            self._refComplexBuffer() #refresh buffer if needed
+
+        #Return the requested amount of data
+        returner = self.CDataBuf[self.bufptr:self.bufptr + Samples]
+        self.bufptr += Samples
+
+        return returner
+
+    
+    def _refComplexBuffer(self):
+        #Put the remaining samples at the beginning
+        remainder = self.BUF_SIZE - self.bufptr
+        remarray = self.CDataBuf[remainder:len(self.CDataBuf)]
+        #self.CDataBuf[0:remainder-1] = self.CDataBuf[remainder:len(self.CDataBuf)] #Put the remainder at the front
+
+        #Read in the rest of the data
+        #for n, s in enumerate(self.CDataBuf[remainder::]):
+        i = 0
+        refarray = np.zeros(remainder,dtype=complex)
+        while i < remainder:
+            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(self.f.read(1)))
+            self.refarray[i] = I1 + Q1 * 1j
+            self.refarray[i + 1] = I2 + Q2 * 1j
+            i += 2
+
+        self.CDataBuf = np.concatenate((remarray,refarray))
+        
+        self.bufptr = 0
+
+        
+
+
     def complexSec(self, Start = -1, Time = .001):
         '''
         Generator function that reads and returns the next 1ms section of data in the file
@@ -47,22 +275,15 @@ class IQData:
 
         Time: size of slice in seconds
         '''
-        arrayLen = int(Time * self.sampleFreq)
-
-        print("Opening a file for reading")
-        with open(self.dir,'rb') as fHandle:
+        
+        with open(self.dir, 'rb') as fHandle:
             fileSize = os.path.getsize(self.dir)
 
-            #Start from where we left off if Start is -1
-            if Start == -1:
-                if self.fptr == -1:
-                    self.fptr = 0
-                    Start = 0
-            else:
-                self.fptr = Start
+            self.fptr = 0
+            arrayLen = self.NS    
             
             #Ending position calculation
-            endAt = self.fptr + (arrayLen / 2 )
+            endAt = self.fptr + (self.NS / 2 )
             
             #Go to starting position and read the first byte
             fHandle.seek(self.fptr)
@@ -72,18 +293,29 @@ class IQData:
             #Init index and EOF flag
             i = 0
             readeof = False
+       
             while(readeof == False):
                 
                 #Init data and time arrays
                 arrayOut = np.zeros(arrayLen, dtype=complex)
-                t = np.zeros(arrayOut)
+                #t = np.zeros(arrayOut)
                 while singleByte != "":
-                    
+                    arrayLen = self.NS    
+            
+                    #Ending position calculation
+                    endAt = self.fptr + (self.NS / 2 )
+                    arrayOut = np.zeros(arrayLen, dtype=complex)
+
                     #Convert byte to data, and the format and place in array (2 at a time)
                     I1, I2, Q1, Q2 = self._byteToIQPairs(ord(singleByte))
                     arrayOut[i] = I1 + Q1 * 1j
-                    arrayOut[i + 1] = I2 + Q2 * 1j
-                    i += 2
+                    try:
+                        arrayOut[i + 1] = I2 + Q2 * 1j
+                        i += 2
+                    except IndexError:
+                        oddLen = True
+
+                    
 
                     #Exit if we are at the end of the file
                     if (self.fptr >= fileSize):
