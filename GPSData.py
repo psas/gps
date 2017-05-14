@@ -47,8 +47,10 @@ class ComplexReturner:
             except IndexError:
                 #If there is not room for the last sample, save it for
                 #the next one
-                print('carrying')
+                #print('carrying')
                 self.complexCarry = I2 + Q2 * 1j
+
+            #Need to handle EOF
 
         
         return returnArray
@@ -85,7 +87,8 @@ class ComplexReturner:
 
         return (I1, I2, Q1, Q2)
 
-class ComplexReader:
+
+
     '''
     Reads in complex data from a file using less memory
     '''
@@ -100,17 +103,15 @@ class ComplexReader:
         #Read sampleFreq from .config
         #self.sampleTime = 1 / self.sampleFreq
 
-    def trackingSegment(self):
-         
-         with open(self.dir, 'rb') as fHandle:
-            fileSize = os.path.getsize(self.dir)
+    
 
-                        
-            #Go to starting position and read the first byte
-            fHandle.seek(self.fptr)
-            singleByte = fHandle.read(1)
-            self.fptr += 1 # Increment current position
-            #arrayLen = self.N   
+    def _byteToIQPairs(self, TheByte ):
+
+        # This code reads each of the four pairs of bits from the byte
+        # and determines the sign and magnitude. Then it returns a list
+        # containing two pairs of IQ data as floating point [I1,Q1,I2,Q2].
+        # For magnitude: a bit value of 1 means mag 1, 0 means mag 1/3
+                   #arrayLen = self.N   
             
             #Ending position calculation
             endpoint = self.fptr + (self.NumSamples / 2 )
@@ -225,168 +226,6 @@ class IQData:
         #Read sampleFreq from .config
         self.sampleTime = 1 / self.sampleFreq
     
-
-    def getComplexData(self, Samples):
-        '''
-        returns complex data array of specified length
-
-        '''
-        #make sure there is enough room in buffer
-        if self.BUF_SIZE - self.bufptr < Samples:
-            self._refComplexBuffer() #refresh buffer if needed
-
-        #Return the requested amount of data
-        returner = self.CDataBuf[self.bufptr:self.bufptr + Samples]
-        self.bufptr += Samples
-
-        return returner
-
-    
-    def _refComplexBuffer(self):
-        #Put the remaining samples at the beginning
-        remainder = self.BUF_SIZE - self.bufptr
-        remarray = self.CDataBuf[remainder:len(self.CDataBuf)]
-        #self.CDataBuf[0:remainder-1] = self.CDataBuf[remainder:len(self.CDataBuf)] #Put the remainder at the front
-
-        #Read in the rest of the data
-        #for n, s in enumerate(self.CDataBuf[remainder::]):
-        i = 0
-        refarray = np.zeros(remainder,dtype=complex)
-        while i < remainder:
-            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(self.f.read(1)))
-            self.refarray[i] = I1 + Q1 * 1j
-            self.refarray[i + 1] = I2 + Q2 * 1j
-            i += 2
-
-        self.CDataBuf = np.concatenate((remarray,refarray))
-        
-        self.bufptr = 0
-
-        
-
-
-    def complexSec(self, Start = -1, Time = .001):
-        '''
-        Generator function that reads and returns the next 1ms section of data in the file
-
-        # Inputs
-        
-        ## kwArgs
-        Start: starting point of file, defaults to -1 which starts from self.fptr
-
-        Time: size of slice in seconds
-        '''
-        
-        with open(self.dir, 'rb') as fHandle:
-            fileSize = os.path.getsize(self.dir)
-
-            self.fptr = 0
-            arrayLen = self.NS    
-            
-            #Ending position calculation
-            endAt = self.fptr + (self.NS / 2 )
-            
-            #Go to starting position and read the first byte
-            fHandle.seek(self.fptr)
-            singleByte = fHandle.read(1)
-            self.fptr += 1 # Increment current position
-            
-            #Init index and EOF flag
-            i = 0
-            readeof = False
-       
-            while(readeof == False):
-                
-                #Init data and time arrays
-                arrayOut = np.zeros(arrayLen, dtype=complex)
-                #t = np.zeros(arrayOut)
-                while singleByte != "":
-                    arrayLen = self.NS    
-            
-                    #Ending position calculation
-                    endAt = self.fptr + (self.NS / 2 )
-                    arrayOut = np.zeros(arrayLen, dtype=complex)
-
-                    #Convert byte to data, and the format and place in array (2 at a time)
-                    I1, I2, Q1, Q2 = self._byteToIQPairs(ord(singleByte))
-                    arrayOut[i] = I1 + Q1 * 1j
-                    try:
-                        arrayOut[i + 1] = I2 + Q2 * 1j
-                        i += 2
-                    except IndexError:
-                        oddLen = True
-
-                    
-
-                    #Exit if we are at the end of the file
-                    if (self.fptr >= fileSize):
-                        print('EOF reached')
-                        readeof = True
-                        break # Stop reading bytes if will exceed requested amount of samples
-
-                    #Yield array and reset once we have 1ms of data
-                    if (self.fptr >= endAt ):
-                        #print('done')
-                        yield arrayOut
-                        endAt += arrayLen / 2
-                        i = 0
-                        arrayOut = np.zeros(arrayLen, dtype=complex) 
-                        
-                    #Get the next byte to read in
-                    singleByte = fHandle.read(1)
-                    self.fptr += 1 # Increment current position
-                    
-
-    def complexData(StartFrom = 0, EndAt = np.inf):
-        '''
-        Generator function that returns the next complex number in the file
-        '''
-        print("Opening a file for generating")
-        fHandle = open(self.dir,'rb')
-        fileSize = os.path.getsize(self.dir)
-        
-        Ts = 1/fs # Sampling Period [s]
-        
-        
-        self.ptr = StartFrom
-        
-        # Go to requested starting position
-        fHandle.seek(StartFrom)
-
-        # Read a single byte to get started
-        SingleByte = fHandle.read(1)
-        
-
-        # Loop until reach EOF (will also break of exceeds requested size)
-        while SingleByte != "":
-            I1, I2, Q1, Q2 = self._byteToIQPairs(ord(SingleByte))
-            
-            yield I1 + Q1 * 1j
-            yield I2 + Q2 * 1j
-
-            self.ptr += 1 # Increment current position
-            if (self.ptr >= fileSize):
-                break # Stop reading bytes if will exceed requested amount of samples
-
-            if (self.ptr >= EndAt ):
-                break
-            
-            #Read the next byte
-            SingleByte = fHandle.read(1)
-            
-            #Track the percentage
-            pct = (self.ptr/fileSize)*100
-            if(pct % 1 == 0):
-                print("%2.0f percent read"%pct, end = '\r')
-            
-
-
-        fHandle.close()
-        print()
-        print("File end reached")
-
-        self._complexData()
-        self._timeVector(self.bytesToSkip, Ts, seconds)
 
 
     def _byteToIQPairs(self, TheByte ):
