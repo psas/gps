@@ -15,7 +15,7 @@ def main():
 
 class ComplexReturner:
     stop = False
-    complexCarry = 1 + 0j
+    complexCarry = 0 + 0j
 
     def __init__(self, FileDirectory, Skip = 0):
         self.dir = FileDirectory
@@ -42,6 +42,7 @@ class ComplexReturner:
             i += 1
             try:
                 returnArray[i] = I2 + Q2 * 1j
+                i += 1
                 
             except IndexError:
                 #If there is not room for the last sample, save it for

@@ -28,12 +28,10 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import configparser
-
 import Acquisition
 
 import GoldCode
-from GPSData import IQData
+from GPSData import ComplexReturner
 
 #np.set_printoptions(threshold=np.inf)
 
@@ -41,35 +39,39 @@ def main():
     # Import data. Will read many ms at once, then process the blocks as needed.
     # Need these to pass to importFile module
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 450
+    numberOfMilliseconds = 20#59900
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0
 
-    data = IQData()
+    data = ComplexReturner('resources/Single4092KHz5s.max')
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
 
     # /home/evan/Capstone/gps/resources/JGPS@-32.041913222
     #data.importFile('resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
     #data.importFile('resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
     #data.importFile('resources/test4092kHz.max', fs, sampleLength, bytesToSkip)
-    data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
-    
+    #data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
+    RealDataOnly = True
+    #data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)#, RealDataOnly)
+
     acqresult = Acquisition.SatStats()
-    acqresult.CodePhaseSamples = int((1023.0 - 630.251585)*4 + 1)
-    acqresult.FineFrequencyEstimate = -3340
+    theCodePhase = 630.251585
+    acqresult.CodePhaseSamples = int((1023.0 - theCodePhase)*4 + 1)
+    acqresult.FineFrequencyEstimate = -3363.8
     acqresult.Sat = 1
 
-
-    channel1 = Channel(data, acqresult)
+    chartOut = True
+    channel1 = Channel(data, acqresult, chartOut)
     channel1.Track()
-    channel1._writeBits()
+    #channel1._writeBits()
+    channel1._writeBits2()
 
 
 
 class Channel:
     def __init__(self, datain, acqData, chartoutput = True):
         #Acquisition inputs
-       
+
         self.data = datain
         self.codePhase = acqData.CodePhaseSamples
         self.acquiredCarrFreq = acqData.FineFrequencyEstimate
@@ -80,7 +82,7 @@ class Channel:
         self.status = False # True if tracking was successful, False otherwise.
 
         #Tracking Parameters (these should be moved to a .json,.xml,or .conf soon)
-        self.msToProcess = 430 # How many ms blocks to process per channel
+        self.msToProcess = 500 # How many ms blocks to process per channel
         self.earlyLateSpacing = 0.5 # How many chips to offset for E & L codes.
         self.codeLoopNoiseBandwidth = 2 # [Hz]
         self.codeZeta = 0.7
@@ -99,7 +101,9 @@ class Channel:
 
         #Tracking Result/Logging Parameters
         self.outputChart = chartoutput
-        if chartoutput:
+        # We still need I_P for data processing, even without needing to plot.
+        #if self.outputChart:
+        if True:
             #Preallocate space if charts are requested
             self.absoluteSample = np.zeros((self.msToProcess)) # Sample that C/A code 1st starts.
             self.codeFreq = np.zeros((self.msToProcess)) # C/A code frequency.
@@ -114,7 +118,7 @@ class Channel:
             self.dllDiscrFilt = np.zeros((self.msToProcess)) # Code-Loop discriminator filter
             self.pllDiscr = np.zeros((self.msToProcess)) # Carrier-Loop discriminator
             self.pllDiscrFilt = np.zeros((self.msToProcess)) # Carrier-Loop discriminator filter
-    
+
     def Track(self):
 
         # Calculate filter coefficient values for code loop
@@ -127,7 +131,7 @@ class Channel:
         # Process channel if PRN is non-zero (Acquisition successful)
         if self.PRN:
             # Create instance of TrackingResults to store results into
-         
+
 
             CACode = GoldCode.getTrackingCode(self.PRN)
 
@@ -171,7 +175,8 @@ class Channel:
 
                 # Read in the appropriate number of samples to process this
                 # iteration
-                rawSignal = self.data.IData[self.codePhase + dataPosition: self.codePhase + dataPosition + blksize]
+                #rawSignal = self.data.IData[self.codePhase + dataPosition: self.codePhase + dataPosition + blksize]
+                rawSignal = np.real(self.data.returnSampleArray(blksize))
                 dataPosition = dataPosition + blksize
 
 
@@ -264,7 +269,10 @@ class Channel:
                 # Modify code freq based on NCO command
                 codeFreq = self.codeFreqBasis - codeNco
 
-                if self.outputChart:
+                # We still need I_P for data processing, even without needing to plot.
+                #if self.outputChart:
+                if True:
+
                     self.pllDiscr[loopCount] = carrError
                     self.carrFreq[(loopCount)] = carrFreq # Return real value only?
 
@@ -278,7 +286,7 @@ class Channel:
 
             if self.outputChart:
                 self._plotOutputs()
-                
+
 
     def _plotOutputs(self):
         plt.plot(self.carrFreq)
@@ -286,14 +294,14 @@ class Channel:
         plt.xlabel("t (ms)")
         plt.title("Carrier frequency of NCO")
         plt.show()
-        
+
         plt.subplot(2,1,1)
         plt.plot(self.I_E**2,label="I_E")
         plt.plot(self.I_P**2,label="I_P")
         plt.plot(self.I_L**2,label="I_L")
         plt.title("DLL Inphase")
         plt.legend()
-        
+
         plt.subplot(2,1,2)
         plt.plot(self.Q_E**2,label="Q_E")
         plt.plot(self.Q_P**2,label="Q_P")
@@ -337,7 +345,7 @@ class Channel:
 
         if name == 'default':
             name = 'SV%s.bin'%self.PRN
-        
+
         # First find a bit transition to be the starting index of the integration
         start = np.sign(self.I_P[0])
 
@@ -347,14 +355,14 @@ class Channel:
                 break
             else:
                 startInd += 1
-            
+
         #Start integrating bits in groups of 20ms
         ptr = 0
         bits = np.zeros(len(self.I_P)/20)
 
         for ind in range(startInd, len(self.I_P), 20):
             m = np.mean(self.I_P[ind:ind+20])
-            
+
             if np.sign(m) == 1:
                 bits[ptr] = 1
             elif np.sign(m) == -1:
@@ -363,16 +371,41 @@ class Channel:
                 pass
                 #raise BitsError(ind)
             ptr += 1
-        
+
         #Write out the ms offset, followed by bitstream
         with open( '%s/%s'%(dr, name),'w') as f:
-            f.write("%1d"%startInd) 
+            f.write("%1d"%startInd)
             f.writelines(["%3d" % item  for item in bits])
             print()
             print("File written to: %s"%f.name)
-                
 
-        
+
+    def _writeBits2(self, dr = '.', name = 'default'):
+        '''
+        Writes out the navigation data bits to a file
+        '''
+
+        if name == 'default':
+            name = 'SV%s.bin'%self.PRN
+
+        # Quantize I_P levels to be either 0 or 1
+        SatelliteData = np.zeros(len(self.I_P), dtype=int)
+        SatelliteBits = []
+        for ind,IP in enumerate(self.I_P):
+            if IP >= 0.1:
+                SatelliteData[ind] = 1
+            elif IP < 0.1:
+                SatelliteData[ind] = 0
+            # Save value every 20ms (choose middle value)
+            if (ind%20 == 10): # If middle of 20ms chunk
+                SatelliteBits.append(SatelliteData[ind])# store bit value
+
+        fHandle = open(name,'wb')
+        fHandle.write(bytes(SatelliteBits))
+        print()
+        print("Total data bits: %d, written to file: %s."%(len(SatelliteBits),fHandle.name))
+
+
 
 class BitsError(Exception):
     def __init__(self, index):
