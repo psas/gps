@@ -13,6 +13,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from FindInList import *
+import pdb
 
 np.set_printoptions(threshold=np.inf)
 
@@ -55,8 +56,28 @@ preambleIndexList = []
 for (ind,val) in enumerate(matches):
     multOfThreeHundred.append(((val-matches[FirstPreamble]) % 300))
     if multOfThreeHundred[len(multOfThreeHundred)-1] == 0:
-        preambleIndexList.append(ind)
+        preambleIndexList.append(val) #ind
 
 # Print indexes of preambles.
 print(preambleIndexList)
 print("Total preambles found: %d" %len(preambleIndexList))
+
+FrameOneIndex = 0
+for ind,val in enumerate(preambleIndexList):
+    HowParitySum = np.sum(TrackingData[val+58:val+60])
+    if HowParitySum == 2:
+        #print("Inverted")
+        # Invert trackign data for current subframe
+        TrackingData[val:val+60] = np.abs(TrackingData[val:val+60] - 1)
+    elif HowParitySum == 0:
+        print("Non-Inverted")
+        # No need to invert
+    else:
+        print("Parity ERROR!!!!")
+        # Probably should do something here
+    SubframeNumber = (TrackingData[val+30+19] << 2) + (TrackingData[val+30+20] << 1) + (TrackingData[val+30+21])
+    print("Subframe number: %d" %SubframeNumber)
+
+# Very much a work-in-progress
+
+#pdb.set_trace()
