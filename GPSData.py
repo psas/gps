@@ -112,9 +112,9 @@ class ComplexReturner:
 
 
 class IQData:
-'''
-Opens an IQ data stream stored in a file that is formatted as specified
-'''
+    '''
+    Opens an IQ data stream stored in a file that is formatted as specified
+    '''
 
     IData = []
     QData = []
