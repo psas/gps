@@ -75,7 +75,7 @@ def main():
 class Channel:
     def __init__(self, datain, acqData, chartoutput = True):
         #Acquisition inputs
-
+       
         self.data = datain
         self.codePhase = acqData.CodePhaseSamples
         self.acquiredCarrFreq = acqData.FineFrequencyEstimate
@@ -122,7 +122,7 @@ class Channel:
             self.dllDiscrFilt = np.zeros((self.msToProcess)) # Code-Loop discriminator filter
             self.pllDiscr = np.zeros((self.msToProcess)) # Carrier-Loop discriminator
             self.pllDiscrFilt = np.zeros((self.msToProcess)) # Carrier-Loop discriminator filter
-
+    
     def Track(self):
 
         # Calculate filter coefficient values for code loop
@@ -135,7 +135,7 @@ class Channel:
         # Process channel if PRN is non-zero (Acquisition successful)
         if self.PRN:
             # Create instance of TrackingResults to store results into
-
+         
 
             CACode = GoldCode.getTrackingCode(self.PRN)
 
@@ -272,10 +272,7 @@ class Channel:
                 # Modify code freq based on NCO command
                 codeFreq = self.codeFreqBasis - codeNco
 
-                # We still need I_P for data processing, even without needing to plot.
-                #if self.outputChart:
-                if True:
-
+                if self.outputChart:
                     self.pllDiscr[loopCount] = carrError
                     self.carrFreq[(loopCount)] = carrFreq # Return real value only?
 
@@ -289,7 +286,7 @@ class Channel:
 
             if self.outputChart:
                 self._plotOutputs()
-
+                
 
     def _plotOutputs(self):
         plt.plot(self.carrFreq)
@@ -297,14 +294,14 @@ class Channel:
         plt.xlabel("t (ms)")
         plt.title("Carrier frequency of NCO")
         plt.show()
-
+        
         plt.subplot(2,1,1)
         plt.plot(self.I_E**2,label="I_E")
         plt.plot(self.I_P**2,label="I_P")
         plt.plot(self.I_L**2,label="I_L")
         plt.title("DLL Inphase")
         plt.legend()
-
+        
         plt.subplot(2,1,2)
         plt.plot(self.Q_E**2,label="Q_E")
         plt.plot(self.Q_P**2,label="Q_P")
@@ -348,7 +345,7 @@ class Channel:
 
         if name == 'default':
             name = 'SV%s.bin'%self.PRN
-
+        
         # First find a bit transition to be the starting index of the integration
         start = np.sign(self.I_P[0])
 
@@ -358,14 +355,14 @@ class Channel:
                 break
             else:
                 startInd += 1
-
+            
         #Start integrating bits in groups of 20ms
         ptr = 0
         bits = np.zeros(len(self.I_P)/20)
 
         for ind in range(startInd, len(self.I_P), 20):
             m = np.mean(self.I_P[ind:ind+20])
-
+            
             if np.sign(m) == 1:
                 bits[ptr] = 1
             elif np.sign(m) == -1:
@@ -374,13 +371,14 @@ class Channel:
                 pass
                 #raise BitsError(ind)
             ptr += 1
-
+        
         #Write out the ms offset, followed by bitstream
         with open( '%s/%s'%(dr, name),'w') as f:
-            f.write("%1d"%startInd)
+            f.write("%1d"%startInd) 
             f.writelines(["%3d" % item  for item in bits])
             print()
             print("File written to: %s"%f.name)
+                
 
 
     def _writeBits2(self, dr = '.', name = 'default'):
