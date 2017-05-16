@@ -9,16 +9,20 @@ GPS signal acquisition
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+import configparser
 
 import GoldCode
 from GPSData import IQData
+
+global GPS_fs
+global GPS_verbosity 
 
 def main():
     '''
     Acquires data from default file when Acquisition.py is run directly
     '''
     # Need these to pass to importFile module
-    fs = 4.092*10**6 # Sampling Frequency [Hz]
+    GPS_fs = 4.092*10**6 # Sampling Frequency [Hz]
     numberOfMilliseconds = 14
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 7000000#71000000
@@ -27,11 +31,11 @@ def main():
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
 
     # /home/evan/Capstone/gps/resources/JGPS@-32.041913222
-    data.importFile('./resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
-    #data.importFile('./resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
-    #data.importFile('../resources/test.max', fs, sampleLength, bytesToSkip)
+    data.importFile('./resources/JGPS@04.559925043', GPS_fs, sampleLength, bytesToSkip)
+    #data.importFile('./resources/JGPS@-32.041913222', GPS_fs, sampleLength, bytesToSkip)
+    #data.importFile('../resources/test.max', GPS_fs, sampleLength, bytesToSkip)
 
-    acquire(data)
+    results = acquire(data)
 
 
 class SatStats:
@@ -44,6 +48,26 @@ class SatStats:
         self.CodePhaseChips = None
         self.PeakToSecond = []
 
+class AcquisitionResult:
+    '''
+    Struct that contains the result of the acquisition process for one satellite. Gets
+    passed to Tracking.py and used to initialize the loops.
+
+    # Contents
+    satellite: specified on creation, integer used to specify satellite
+    codePhase: detected code phase after acquisition
+    carrFreq : detected carrier frequency after acquisition
+    '''
+
+    def __init__(self, SV):
+        #Primary info for tracking
+        self.satellite = SV
+        self.codePhase = 0
+        self.carrFreq  = 0
+
+        #Additional info for the director module
+        if GPS_directed:
+            self.pSNR
 
 def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
             show_final_plot=True, save_sat_results=False):
@@ -71,16 +95,8 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
     object containing acquisition results
 
     '''
-    #Choose what frequencies and satellites to increment over
-
-    numberOfMilliseconds = block_size_ms
-
-    # Create list of C/A code Taps, for simpler sat selection",
-    sat = [(1, 5), (2, 6), (3, 7), (4, 8), (0, 8), (1, 9), (0, 7), (1, 8), (2, 9), (1, 2),
-           (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 3), (1, 4), (2, 5), (3, 6),
-           (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
-           (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
-
+    
+    
     # Create array to store max values, freq ranges, per satellite
     satInfoList = []
     for x in range(33):
@@ -112,6 +128,7 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
         maxVals[satInd + 1] = np.amax(satInfoList[satInd+1].PeakToSecond)
 
         satInd = satInd+1
+
     if show_final_plot:
         _outputplot(maxVals)
         _outputTable(satInfoList)
@@ -127,6 +144,9 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
 
     code: C/A code for the desired satellite that has been generated, sampled,
     and extended.
+
+    bins: a list of integers where each element is a frequency at which acquisition 
+    will be done.
 
     ## kwArgs:
 
@@ -149,20 +169,18 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
     SNRList = np.zeros(len(bins))
 
     codefft = np.fft.fft(code, len(dataBlock))
-
     GCConj = np.conjugate(codefft)
+    
     N = len(bins)
-    freqInd = 0
+    freqIn = 0
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
-        # Initialize complex array
-        CDataShifted = np.zeros(len(dataBlock), dtype=np.complex)
-
-        # Shift frequency using complex exponential
+        
+        # Shift frequency to baseband using complex exponential
         CDataShifted = dataBlock*np.exp(-1j*2*np.pi*curFreq*timeBlock)
-
         fftCDataShifted = np.fft.fft(CDataShifted, NsamplesBlock)
 
+        # Mix code fft and take inverse
         result = np.fft.ifft(GCConj * fftCDataShifted, NsamplesBlock)
 
         resultSQ = np.real(result * np.conjugate(result))
@@ -195,6 +213,7 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
 
         # Percentage Output
         print("%02d%%"%((n/N)*100), end="\r")
+   
     peakToSecondMaxBin = np.argmax(peakToSecondList)
     curSatInfo.MaxSNR = SNRList[peakToSecondMaxBin]
     curSatInfo.DopplerHz = bins[peakToSecondMaxBin]
@@ -223,13 +242,13 @@ def GetFineFrequency(data, SatInfo, code5ms): # now passed in data class
     # of data (probably same length of data that was used in the circular
     # cross-correlation)
 
-    fs = 4.092*10**6
-    Ts = 1/fs
+    
+    Ts = 1/GPS_fs
 
     # Medium-frequency estimation data length (1ms in book, but may need to used
     # the data length from acquisition)
     numMSmf = 1 # num ms for medium-frequency estimation
-    Nmf = int(np.ceil(numMSmf*0.001*fs))  # num of samples to use for medium-frequency estimation (and DFT)
+    Nmf = int(np.ceil(numMSmf*0.001*GPS_fs))  # num of samples to use for medium-frequency estimation (and DFT)
 
     dataMF = data.CData[0:(4092*numMSmf)]
 

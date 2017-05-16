@@ -27,7 +27,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from GoldCode import GoldCode
+import GoldCode
 from GPSData import IQData
 
 #np.set_printoptions(threshold=np.inf)
@@ -35,7 +35,7 @@ from GPSData import IQData
 # Import data. Will read many ms at once, then process the blocks as needed.
 # Need these to pass to importFile module
 fs = 4.092*10**6 # Sampling Frequency [Hz]
-numberOfMilliseconds = 4500
+numberOfMilliseconds = 59900
 sampleLength = numberOfMilliseconds*10**(-3)
 bytesToSkip = 0
 
@@ -46,7 +46,11 @@ data = IQData()
 #data.importFile('resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
 #data.importFile('resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
 #data.importFile('resources/test4092kHz.max', fs, sampleLength, bytesToSkip)
-data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
+#data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
+#data.importFile('resources/test4097kHz60s1Sat.max', fs, sampleLength, bytesToSkip)
+
+RealDataOnly = True
+data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
 
 def calcLoopCoef(LoopNoiseBandwidth, Zeta, LoopGain):
     # Solve for the natural frequency
@@ -61,7 +65,7 @@ def calcLoopCoef(LoopNoiseBandwidth, Zeta, LoopGain):
 
 class TrackingSettings:
     def __init__(self):
-        self.msToProcess = 4400 # How many ms blocks to process per channel
+        self.msToProcess = 59500 # How many ms blocks to process per channel
         self.dllCorrelatorSpacing = 0.5 # How many chips to offset for E & L codes.
         self.codeLoopNoiseBandwidth = 2 # [Hz]
         self.codeZeta = 0.7
@@ -129,7 +133,7 @@ channel.codePhase = int((1023.0 - 630.251585)*4 + 1) # Value from generator
 #channel.codePhase = int(655.25*4) # Value from generator
 
 #channel.acquiredFreq = -3363.817361 # Value from generator
-channel.acquiredFreq = -3340
+channel.acquiredFreq = -3363.8
 
 # Process each channel (Will impliment loop in future. For now only processing one channel)
 # Process channel if PRN is non-zero (Acquisition successful)
@@ -145,14 +149,8 @@ if channel.PRN:
            (4, 7), (5, 8), (0, 2), (3, 5), (4, 6), (5, 7), (6, 8), (7, 9), (0, 5), (1, 6),
            (2, 7), (3, 8), (4, 9), (3, 9), (0, 6), (1, 7), (3, 9)]
 
-    codeGen = GoldCode(sat[channel.PRN - 1]) # Index starts at zero
+    CACode = GoldCode.getTrackingCode(channel.PRN)
 
-    # Generate CA Code
-    CACode = np.array(codeGen.getCode(1023, samplesPerChip=1))
-    #print(CACode)
-    CACode = np.append(CACode,CACode[0])
-    CACode = np.insert(CACode,0, CACode[len(CACode) - 2])
-    #print(CACode)
     # Perform additional initializations:
     codeFreq = settings.codeFreqBasis
 
@@ -179,7 +177,7 @@ if channel.PRN:
 
     # Process the requested number of code periods (num of ms to process)
     for loopCount in range(0,codePeriods):
-        print("------- Loop Count:   %d  --------"%loopCount)
+        #print("------- Loop Count:   %d  --------"%loopCount)
         # Read current block of data
         # Find the size of a "block" or code period in whole samples
 
@@ -310,6 +308,23 @@ if channel.PRN:
         trackResults.Q_L[loopCount] = Q_L
 
 
+    SatelliteData = trackResults.I_P
+    SatelliteBits = []
+
+    fHandle = open("bits.txt",'wb')
+    for ind,IP in enumerate(SatelliteData):
+        if IP > 0.1:
+            SatelliteData[ind] = int(1)
+        elif IP < 0.1:
+            SatelliteData[ind] = int(0)
+        if (ind%20 == 10): # If middle of 20ms chunk
+            SatelliteBits.append(int(SatelliteData[ind])) # store bit value
+
+    fHandle.write(bytes(SatelliteBits))
+    fHandle.close()
+
+    quit()
+
     plt.plot(trackResults.carrFreq)
     plt.title("Carrier frequency of NCO per ms data sample.")
     plt.show()
@@ -327,16 +342,6 @@ if channel.PRN:
     plt.title("Quadrature int/dump vs. ms data block")
     plt.show()
 
-    SatelliteData = trackResults.I_P
-    for ind,IP in enumerate(SatelliteData):
-        if IP > 0.1:
-            SatelliteData[ind] = 1
-        elif IP < 0.1:
-            SatelliteData[ind] = 0
-
     plt.plot(SatelliteData)
     plt.title("In-phase Prompt per ms (shows data transitions)")
-    plt.show()
-
-    plt.plot(trackResults.pllDiscr)
     plt.show()
