@@ -2,7 +2,6 @@
 This module contains tools to import raw GPS data for
 use with the soft correlator.
 
-
 '''
 import numpy as np
 import configparser
@@ -126,14 +125,17 @@ Opens an IQ data stream stored in a file that is formatted as specified
     Nsamples   = 0
 
     def _byteToIQPairs(self, TheByte, realOnly=False):
+        '''
+        Reads each of the four pairs of bits from the byte
+        and determines the sign and magnitude. Then it returns a list
+        containing two pairs of IQ data as floating point [I1,Q1,I2,Q2].
 
-        # This code reads each of the four pairs of bits from the byte
-        # and determines the sign and magnitude. Then it returns a list
-        # containing two pairs of IQ data as floating point [I1,Q1,I2,Q2].
-        # For magnitude: a bit value of 1 means mag 1, 0 means mag 1/3
-        # For sign: a bit value of 1 means negative, 0 means positive
-        # This interpretation was taken by the sample code provided
-        # in the PSAS Launch12 github repo (example was provided in C)
+        For magnitude: a bit value of 1 means mag 1, 0 means mag 1/3
+        For sign: a bit value of 1 means negative, 0 means positive
+        
+        This interpretation was taken by the sample code provided
+        in the PSAS Launch12 github repo (example was provided in C)
+        '''
 
         if realOnly:
             IMag1 = (TheByte >> 7) & (0b00000001)
@@ -173,14 +175,18 @@ Opens an IQ data stream stored in a file that is formatted as specified
         return (I1, I2, Q1, Q2)
 
     def _complexData(self):
-        #Returns array of complex data
+        '''
+        Returns array of complex data
+        '''
         self.CData = np.zeros(len(self.IData), dtype=np.complex)
         self.CData = np.array(self.IData) + np.array(self.QData) * 1j  # Complex data
         return
 
     def _timeVector(self, bytesToSkip, Ts, seconds):
-        #Generates time vector of requested data.
-        #Will assume that t=0 for the start of file.
+        '''
+        Generates time vector of requested data.
+        Will assume that t=0 for the start of file.
+        '''
 
         # Each byte has 2 IQ pairs, so 2*Ts seconds will have elapsed.
         StartingTime = bytesToSkip*2*Ts
@@ -194,8 +200,24 @@ Opens an IQ data stream stored in a file that is formatted as specified
     def importFile(self, path, fs, seconds, bytestoskip, realOnly=False):
         '''
         imports IQ Data from a file
-        fs is sampling frequency
-        seconds is the length of data in seconds
+
+        # Args
+        
+        path: location of file to import
+
+        fs: sampling frequency
+
+        seconds: the length of data in seconds
+        
+        bytestoskip: integer number of bytes in the file (i.e. samples/2) to skip in the file
+
+        # kwArgs
+
+        realOnly: ignore the complex data points when importing
+
+        # Returns
+
+        Function has no returns, but reads the file data into the IData, QData, and/or CData arrays
 
         '''
         print("Opening a file.")
@@ -261,8 +283,12 @@ Opens an IQ data stream stored in a file that is formatted as specified
         self._timeVector(self.bytesToSkip, Ts, seconds)
 
     def ComplexToReal(self,CData):
-        # This algorithm was taken from "Fundamentals of Global Positioning
-        # System Receivers: A Software Approach" by James Bao-Yen Tsui, section 6.14.
+        '''
+        This algorithm was taken from "Fundamentals of Global Positioning
+        System Receivers: A Software Approach" by James Bao-Yen Tsui, section 6.14.
+
+        Consider rewriting in Rust and moving to file directory
+        '''
 
         # Step 1: Take DFT of complex data
         CDataFFT = np.fft.fft(CData)
