@@ -49,7 +49,8 @@ data = IQData()
 #data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
 #data.importFile('resources/test4097kHz60s1Sat.max', fs, sampleLength, bytesToSkip)
 
-data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip)
+RealDataOnly = True
+data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
 
 def calcLoopCoef(LoopNoiseBandwidth, Zeta, LoopGain):
     # Solve for the natural frequency
@@ -132,7 +133,7 @@ channel.codePhase = int((1023.0 - 630.251585)*4 + 1) # Value from generator
 #channel.codePhase = int(655.25*4) # Value from generator
 
 #channel.acquiredFreq = -3363.817361 # Value from generator
-channel.acquiredFreq = -3363
+channel.acquiredFreq = -3363.8
 
 # Process each channel (Will impliment loop in future. For now only processing one channel)
 # Process channel if PRN is non-zero (Acquisition successful)
@@ -176,7 +177,7 @@ if channel.PRN:
 
     # Process the requested number of code periods (num of ms to process)
     for loopCount in range(0,codePeriods):
-        print("------- Loop Count:   %d  --------"%loopCount)
+        #print("------- Loop Count:   %d  --------"%loopCount)
         # Read current block of data
         # Find the size of a "block" or code period in whole samples
 
@@ -307,6 +308,23 @@ if channel.PRN:
         trackResults.Q_L[loopCount] = Q_L
 
 
+    SatelliteData = trackResults.I_P
+    SatelliteBits = []
+
+    fHandle = open("bits.txt",'wb')
+    for ind,IP in enumerate(SatelliteData):
+        if IP > 0.1:
+            SatelliteData[ind] = int(1)
+        elif IP < 0.1:
+            SatelliteData[ind] = int(0)
+        if (ind%20 == 10): # If middle of 20ms chunk
+            SatelliteBits.append(int(SatelliteData[ind])) # store bit value
+
+    fHandle.write(bytes(SatelliteBits))
+    fHandle.close()
+
+    quit()
+
     plt.plot(trackResults.carrFreq)
     plt.title("Carrier frequency of NCO per ms data sample.")
     plt.show()
@@ -324,33 +342,6 @@ if channel.PRN:
     plt.title("Quadrature int/dump vs. ms data block")
     plt.show()
 
-    SatelliteData = trackResults.I_P
-    SatelliteBits = []
-
-    fHandle = open("bits.txt",'wb')
-    for ind,IP in enumerate(SatelliteData):
-        if IP > 0.1:
-            SatelliteData[ind] = int(1)
-        elif IP < 0.1:
-            SatelliteData[ind] = int(0)
-        if (ind%20 == 10): # If middle of 20ms chunk
-            SatelliteBits.append(int(SatelliteData[ind])) # store bit value
-            #print(type(SatelliteData[ind]))
-            #print(type(SatelliteBits[len(SatelliteBits)-1]))
-
     plt.plot(SatelliteData)
     plt.title("In-phase Prompt per ms (shows data transitions)")
     plt.show()
-
-    # Write bits to file
-
-    #plt.scatter(range(0,len(SatelliteBits)),SatelliteBits)
-    #plt.title("Satellite bits")
-    #plt.show()
-
-    #plt.plot(trackResults.pllDiscr)
-    #plt.show()
-    print(len(SatelliteBits))
-    fHandle.write(bytes(SatelliteBits))
-
-    fHandle.close()
