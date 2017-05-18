@@ -4,7 +4,9 @@ This is a software correlator for GPS. Our primary reference for FFT-based
 correlation was [Andrew Holme's homebrew GPS receiver documentation](http://www.holmea.demon.co.uk/GPS/Main.htm), which we
 highly recommend for background.
 
-This project is currently the focus of the 2017 ECE capstone team. The first objective is to create a Python prototype correlator. If time allows, the code will be ported to an embedded Rust implementation, and flown on the rocket as well as OreSat.
+This project is currently the focus of the 2017 ECE capstone team. The Python prototype developed will be used in conjunction with the data generator to 
+develop revised hardware, and higher performance algorithms. Once the hardware and software perform adequately, they will be implemented into launch hardware 
+for the rocket and OreSat.
 
 # Progress
 
@@ -18,7 +20,7 @@ This project is currently the focus of the 2017 ECE capstone team. The first obj
     - [x] Lock on to plain carrier signal
     - [x] Lock on to plain code signal
     - [x] Lock on to plain carrier + code signal
-    - [ ] Lock on to generated GPS satellite data
+    - [x] Lock on to generated GPS satellite data
     - [ ] Lock on to satellite signal from launch data
   - [ ] Navigation 
     - [ ] Interpret almanac data
@@ -26,45 +28,31 @@ This project is currently the focus of the 2017 ECE capstone team. The first obj
     - [ ] Get precise location using code phase
     - [ ] Track position changes (velocity)
     - [ ] Kalman filter PVT data
-- [ ] Embedded Rust 
- 
+
+
 
 # Documentation
 
 To learn more about the theory about how GPS and the software works, you can browse the Jupyter notebooks located in the /notebooks folder. 
 
-## Sample Data
+# Reading List
 
-### Python Code
+These are books about GPS theory that we found helpul while working on the code:
 
-The python code is primarily tested using the GPS data recorded from L-12. The files are located in the /resources/ directory. More info can be found in the Launch 12 repo.
+- [A Software-Defined GPS and Galileo Receiver: A Single-Frequency Approach](https://www.bookfinder.com/search/?isbn=9780817643904) by Borre, Akos et.al.: We used this book very extensively since their implementation is similar to what we are trying to do. The book comes with a DVD contaning a (GPL Licensed) MATLAB receiver, and one may notice that our code is very similar in some spots to the MATLAB code. 
 
-### C Code
+- [Understanding GPS: Principles and Applications](https://www.bookfinder.com/search/?isbn=9780890067932) by Kaplan: This book is probably the most approachable to someone who is unfamiliar with GPS. This is our recommended starting point.
 
-The C code has been tested with the data logged by KD7LMO. [Original Site](http://www.kd7lmo.net/ground_gnuradio_ota.html) // [Mirror](http://ad7zj.net/kd7lmo/ground_gnuradio_ota.html). More info about the data is below:
+- [Fundamentals of Global Positioning System Receivers: A Software Approach](https://www.bookfinder.com/search/?isbn=9780471706472) by Tsui: An extremely helpful book that discusses software implementations of GPS receivers. Both this and Borre complement one another with their own perspectives and approaches.
 
-The input format is that used by KD7LMO for OTA GPS captures in 2005. KD7LMO's
-data is:
+- [Global Positioning System: Signals, Measurements, and Performance](https://www.bookfinder.com/search/?isbn=9780970954428) by Misra, Enge: A (physically) large book that covers a lot of material.
 
- - downconverted from 1575.42 MHz,
- - quadrature sampled at 4MSPS,
- - encoded Intel endian, 32-bit floating point values in I, Q interleaved
+- [Global Positioning System: Theory and Applications Volume II](https://www.bookfinder.com/search/?&isbn=9781563471070) by Parkinson, Spiker: Does not cover GPS receiver, but has many interesting applications of GPS receiver technology to different problems, including differential GPS, orbit determination, attitude determination, and several more. Very interesting if one has a custom GPS receiver available. 
 
-These datafiles should have the following sats in them:
+- Also do not forget [Andrew Holme's homebrew GPS receiver documentation](http://www.holmea.demon.co.uk/GPS/Main.htm) linked above.
 
- File Name                         | Capture Info            | Sats, remarks
- --------------------------------- | ----------------------- | -------------
- `gps_4m_complex.dat`              | 0008 UTC on 26 Mar 2005 | SV 1, 3, 14, 15, 19, 21, 22, 25 and WAAS 47
- `gps_4m_complex.21Apr2005.dat`    | 0522 UTC on 21 Apr 2005 | SV 3, 8, 13, 16, 19, 20, 23, 27 and WAAS 35 and 47
- `gps_4msps_complex.12Sep2005.dat` | A 60 second capture     | Snapshot contains at least one set of ephemeris data.
 
-### Other data samples
 
-For another source of raw GPS samples, try:
-- [SoftGPS Project](http://kom.aau.dk/project/softgps/data.php)
-- [(1.2GB) gnss-sdr project @ Sourceforge](http://sourceforge.net/projects/gnss-sdr/files/data/2013_04_04_GNSS_SIGNAL_at_CTTC_SPAIN.tar.gz/download)
-- [(7+GB) From setiQuest SigBlips archive.](http://setiquest.org/setidata/data3/download/2010-10-08-GPS-27_1575_1/) See [here](http://www.acasper.org/2011/11/07/gps-signal-analysis/) for analysis of this data.
-- [(3.2GB) 3 minutes of SV26 from setiQuest SigBlips archive](http://setiquest.org/setidata/data1/download/2010-01-22-gps-prn26)
 
 
 

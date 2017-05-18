@@ -73,6 +73,10 @@ def main():
 
 
 class Channel:
+'''
+Class that is a channel dedicated to tracking one satellite through a section of data.
+At least 4 are required to get a pseudorange.
+'''
     def __init__(self, datain, acqData, chartoutput = True):
         #Acquisition inputs
        
@@ -124,6 +128,11 @@ class Channel:
             self.pllDiscrFilt = np.zeros((self.msToProcess)) # Carrier-Loop discriminator filter
     
     def Track(self):
+        '''
+        Retrieves data from data array (self.data), and aligns the replica code and 
+        carrier to get navigation bits. Takes no arguments, but reads from self.data,
+        and outputs navigation data on self.I_P.
+        '''
 
         # Calculate filter coefficient values for code loop
         tau1code, tau2code = self._calcLoopCoef(self.codeLoopNoiseBandwidth, self.codeZeta, self.codeLoopGain)
@@ -327,7 +336,9 @@ class Channel:
 
     def _calcLoopCoef(self, LoopNoiseBandwidth, Zeta, LoopGain):
         '''
-        Calculates the loop coefficients tau1 and tau2
+        Calculates the loop coefficients tau1 and tau2. 
+
+        This process is discussed in sections 7.1-7.3 of Borre.
         '''
         # Solve for the natural frequency
         Wn = LoopNoiseBandwidth*8*Zeta / (4*Zeta**2 + 1)
@@ -340,7 +351,8 @@ class Channel:
 
     def _writeBits(self, dr = '.', name = 'default'):
         '''
-        Writes out the navigation data bits to a file
+        Writes out the navigation data bits to a file for analysis using navigation tools. This version is 
+        not fully working.
         '''
 
         if name == 'default':
@@ -383,9 +395,22 @@ class Channel:
 
     def _writeBits2(self, dr = '.', name = 'default'):
         '''
-        Writes out the navigation data bits to a file
+        Writes out the navigation data bits to a file, revised from _writeBits()
+
+        # kwArgs
+
+        dr: directory where the file of bits ends up. Default is the cwd.
+        
+        name: prefix of the name of the exported file to differetiate it from other channels.
+              default is to use SV followed by the identification number of the satellite. 
+
+        # ToDo
+
+        - Add a timestamp option for the filename. This differetiates the file from other 'runs'
+        of the tracking algorithm.
         '''
 
+        
         if name == 'default':
             name = 'SV%s.bin'%self.PRN
 
@@ -406,9 +431,7 @@ class Channel:
         print()
         print("Total data bits: %d, written to file: %s."%(len(self.SatelliteBits),fHandle.name))
 
-    def GetEphemeris(self):
-        print(self.SatelliteBits)
-        return 0
+    
 
 class BitsError(Exception):
     def __init__(self, index):
