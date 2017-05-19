@@ -23,9 +23,9 @@ def main():
     '''
     # Need these to pass to importFile module
     GPS_fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 14
+    numberOfMilliseconds = 8
     sampleLength = numberOfMilliseconds*10**(-3)
-    bytesToSkip = 7000000#71000000
+    bytesToSkip = 0#71000000
 
     data = IQData()
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
@@ -35,7 +35,7 @@ def main():
     #data.importFile('./resources/JGPS@-32.041913222', GPS_fs, sampleLength, bytesToSkip)
     #data.importFile('../resources/test.max', GPS_fs, sampleLength, bytesToSkip)
 
-    results = acquire(data)
+    results = acquire(data,block_size_ms=numberOfMilliseconds)
 
 
 class SatStats:
@@ -109,7 +109,10 @@ def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=r
         print("Searching for SV " + str(curSat) + "...")
         
         #Grab a CA Code
-        CACodeSampled = GoldCode.getAcquisitionCode(curSat, 4)
+        CACode = GoldCode.getAcquisitionCode(curSat, 4)
+
+        # Repeat entire array for each ms of data sampled
+        CACodeSampled = np.tile(CACode, int(data.sampleTime*1000))
 
         #CHECK
         acqResult = findSat(data, CACodeSampled, bin_list, block_size_ms)
@@ -172,7 +175,7 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
     GCConj = np.conjugate(codefft)
     
     N = len(bins)
-    freqIn = 0
+    freqInd = 0
     # Loop through all frequencies
     for n, curFreq in enumerate(bins):
         
@@ -222,7 +225,7 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
     curSatInfo.CodePhaseChips = 1023 - L1SampleRatio*curSatInfo.CodePhaseSamples
 
     # Check if Acquisition was successful for this satellite
-    if np.amax(curSatInfo.PeakToSecond) >= 5.5:
+    if np.amax(curSatInfo.PeakToSecond) >= SNR_THRESHOLD:
         curSatInfo.Acquired = True
 
     # Get fine-frequency (If acquired):
@@ -233,7 +236,7 @@ def findSat(data,  code, bins, block_size_ms=14,tracking = False):
         # Repeat entire array 5 times for 5 ms
         code5ms = np.tile(CACode, int(5))
 
-        GetFineFrequency(data,curSatInfo,code5ms)
+        #GetFineFrequency(data,curSatInfo,code5ms)
 
     return curSatInfo
 
