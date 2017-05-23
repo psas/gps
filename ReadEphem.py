@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 '''
 This reads the data that have been exported by Tracking.py.
 
@@ -23,6 +25,15 @@ parser = argparse.ArgumentParser(
         )
 parser.add_argument('DataFile')
 args = parser.parse_args()
+
+# Create class to store subframes:
+class SubFrame:
+    def __init__(self):
+        self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.FrameData = None # 300 bytes long (each byte is one bit value)
+        self.FrameNumber = None # Will be a value 1-5
+        self.ParityD25toD30 = None # Current parity bits
 
 TrackingData = np.fromfile(args.DataFile, dtype=np.int8, count=-1,sep='')
 
@@ -62,22 +73,39 @@ for (ind,val) in enumerate(matches):
 print(preambleIndexList)
 print("Total preambles found: %d" %len(preambleIndexList))
 
-FrameOneIndex = 0
-for ind,val in enumerate(preambleIndexList):
-    HowParitySum = np.sum(TrackingData[val+58:val+60])
-    if HowParitySum == 2:
-        #print("Inverted")
-        # Invert trackign data for current subframe
-        TrackingData[val:val+60] = np.abs(TrackingData[val:val+60] - 1)
-    elif HowParitySum == 0:
-        print("Non-Inverted")
-        # No need to invert
-    else:
-        print("Parity ERROR!!!!")
-        # Probably should do something here
-    SubframeNumber = (TrackingData[val+30+19] << 2) + (TrackingData[val+30+20] << 1) + (TrackingData[val+30+21])
-    print("Subframe number: %d" %SubframeNumber)
+#c1
 
-# Very much a work-in-progress
+# Now that the preambles are found, load class with subframe information
+SubFrameList = []
+for (ind,val) in enumerate(preambleIndexList):
+    if (len(TrackingData) - 300) < val:
+        print("Subframe associated with last preamble not complete, so discarding.")
+        break # Current subframe not complete, so break.
+        # Will need to do another check to make sure val > 1
+    curSubFrame = SubFrame()
+    curSubFrame.LastD29 = TrackingData[val-2]
+    curSubFrame.LastD30 = TrackingData[val-1]
+    curSubFrame.FrameData = TrackingData[val:val+301]
+    SubFrameList.append(curSubFrame)
 
-#pdb.set_trace()
+# Convert data bits 1-24 so that multiplication can replace modulo-2 addition
+for indFrame in range(len(SubFrameList)):
+    #print ("Frame %d of %d" %(indFrame+1,len(SubFrameList)))
+    for indBit in range(24): # change bits 1-24
+        if SubFrameList[indFrame].FrameData[indBit] == 1:
+            SubFrameList[indFrame].FrameData[indBit] = -1
+        elif SubFrameList[indFrame].FrameData[indBit] == 0:
+            SubFrameList[indFrame].FrameData[indBit] = 1
+        else:
+            print("Data bit found that was not 0 or 1!!!")
+
+
+### Generate parity matrix
+# First 5 rows, same vector but rotated
+hRow = [1,1,1,0,1,1,0,0,0,1,1,1,1,1,0,0,1,1,0,1,0,0,1,0]
+# Last row is different
+hRowLast = [0,0,1,0,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,0,0,1,1,1]
+# Create matrix
+H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
+
+#pdb.set_trace() # Spawn python shell

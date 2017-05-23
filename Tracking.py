@@ -90,10 +90,12 @@ class Channel:
         self.settings = GPS_conf['TRACKING']
         
         #Acquisition inputs
+       
         self.data = datain
         self.codePhase = acqData.CodePhaseSamples
         self.acquiredCarrFreq = acqData.FineFrequencyEstimate
         self.PRN = acqData.Sat # Value will be non-zero if Acquisition was successful for this channel
+
 
         self.progress = True #Output progress
         self.status = False # True if tracking was successful, False otherwise.
@@ -143,6 +145,8 @@ class Channel:
         # Process channel if PRN is non-zero (Acquisition successful)
         if self.PRN:
             # Create instance of TrackingResults to store results into
+         
+
             CACode = GoldCode.getTrackingCode(self.PRN)
 
             # Perform additional initializations:
@@ -150,6 +154,8 @@ class Channel:
 
             # Residual code/carrier phase
             remCodePhase = 0.0
+
+            # define residual carrier phase
             remCarrPhase  = 0.0
 
             # code tracking loop parameters
