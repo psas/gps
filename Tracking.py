@@ -88,16 +88,15 @@ class Channel:
         
         global GPS_conf
         self.settings = GPS_conf['TRACKING']
+        
         #Acquisition inputs
         self.data = datain
         self.codePhase = acqData.CodePhaseSamples
         self.acquiredCarrFreq = acqData.FineFrequencyEstimate
         self.PRN = acqData.Sat # Value will be non-zero if Acquisition was successful for this channel
 
-
         self.progress = True #Output progress
         self.status = False # True if tracking was successful, False otherwise.
-
         
         self.SamplesPerChip = int(float(GPS_conf['DATA']['fs']) /
                                   float(self.settings['codeFreqBasis']))
@@ -133,11 +132,11 @@ class Channel:
         global GPS_conf
 
         # Calculate filter coefficient values for code loop
-        tau1code, tau2code = self._calcLoopCoef(float(self.settings['codeLoopNoiseBandwidth'])
+        coeffCode1, coeffCode2 = self._calcLoopCoef(float(self.settings['codeLoopNoiseBandwidth'])
                                                 , float(self.settings['codeZeta']), float(self.settings['codeLoopGain']))
 
         # Calculate filter coefficient values for carrier loop
-        tau1carr, tau2carr = self._calcLoopCoef(float(self.settings['carrLoopNoiseBandwidth'])
+        coeffCar1, coeffCar2 = self._calcLoopCoef(float(self.settings['carrLoopNoiseBandwidth'])
                                                 , float(self.settings['carrZeta']), float(self.settings['carrLoopGain']))
 
         # Process each channel (Will impliment loop in future. For now only processing one channel)
@@ -172,9 +171,6 @@ class Channel:
             codeLength = int(self.settings['codeLength'])
             earlyLateSpacing = float(self.settings['earlyLateSpacing'])
             chippingRate = float(self.settings['codeFreqBasis'])
-
-            carrInterval = float(self.settings['PDIcarr'])
-            codeInterval = float(self.settings['PDIcode'])
 
             # Process the requested number of code periods (num of ms to process)
             for loopCount in range(0, ms):
@@ -260,7 +256,7 @@ class Channel:
                 carrError = np.arctan(Q_P / I_P) / (2.0 * np.pi)
 
                 # Implement carrier loop filter and generate NCO command
-                carrNco = oldCarrNco + (tau2carr/tau1carr) * (carrError - oldCarrError) + carrError * (carrInterval/tau1carr)
+                carrNco = oldCarrNco + coeffCar1 * (carrError - oldCarrError) + carrError * coeffCar2
                 oldCarrNco   = carrNco
                 oldCarrError = carrError
 
@@ -272,7 +268,7 @@ class Channel:
                             (np.sqrt(I_E * I_E + Q_E * Q_E) + np.sqrt(I_L * I_L + Q_L * Q_L))
 
                 # Implement code loop filter and generate NCO command
-                codeNco = oldCodeNco + (tau2code/tau1code) * (codeError - oldCodeError) + codeError * (codeInterval/tau1code)
+                codeNco = oldCodeNco + coeffCode1 * (codeError - oldCodeError) + codeError * coeffCode2
                 oldCodeNco   = codeNco
                 oldCodeError = codeError
 
@@ -345,7 +341,10 @@ class Channel:
         tau1 = LoopGain / (Wn * Wn);
         tau2 = (2.0 * Zeta) / Wn;
 
-        return (tau1, tau2)
+        coeff1 = tau2/tau1
+        coeff2 = float(self.settings['sumInt'])/tau1
+
+        return (coeff1, coeff2)
 
     def _writeBits(self, dr = '.', name = 'default'):
         '''
