@@ -233,6 +233,8 @@ class Channel:
                 #print("Length of time array for cos and sin: %d" %len(time))
                 # Get the argument to sin/cos functions
                 trigarg = ((carrFreq * 2.0 * np.pi) * time) + remCarrPhase
+                
+                # Carry the leftover phase to the next argument by looking at the last element
                 remCarrPhase = trigarg[blksize] % (2 * np.pi)
 
                 # Finally compute the signal to mix the collected data to baseband
