@@ -41,7 +41,7 @@ def main():
     # Import data. Will read many ms at once, then process the blocks as needed.
     # Need these to pass to importFile module
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 31000
+    numberOfMilliseconds = 310
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0
 
@@ -52,10 +52,10 @@ def main():
     #data.importFile('resources/JGPS@04.559925043', fs, sampleLength, bytesToSkip)
     #data.importFile('resources/JGPS@-32.041913222', fs, sampleLength, bytesToSkip)
     #data.importFile('resources/test4092kHz.max', fs, sampleLength, bytesToSkip)
-    #data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
+    data.importFile('resources/Single4092KHz5s.max', fs, sampleLength, bytesToSkip)
     RealDataOnly = True
     #data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
-    data.importFile('resources/Single4092KHz120s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
+    #data.importFile('resources/Single4092KHz120s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
 
     acqresult = Acquisition.SatStats()
     theCodePhase = 630.251585
@@ -63,7 +63,7 @@ def main():
     acqresult.FineFrequencyEstimate = -3363.8
     acqresult.Sat = 1
 
-    chartOut = False
+    chartOut = True
     channel1 = Channel(data, acqresult, chartOut)
     channel1.Track()
     #channel1._writeBits()
@@ -73,10 +73,10 @@ def main():
 
 
 class Channel:
-'''
-Class that is a channel dedicated to tracking one satellite through a section of data.
-At least 4 are required to get a pseudorange.
-'''
+    '''
+    Class that is a channel dedicated to tracking one satellite through a section of data.
+    At least 4 are required to get a pseudorange.
+    '''
     def __init__(self, datain, acqData, chartoutput = True):
         #Acquisition inputs
        
@@ -90,7 +90,7 @@ At least 4 are required to get a pseudorange.
         self.status = False # True if tracking was successful, False otherwise.
 
         #Tracking Parameters (these should be moved to a .json,.xml,or .conf soon)
-        self.msToProcess = 30000 # How many ms blocks to process per channel
+        self.msToProcess = 300 # How many ms blocks to process per channel
         self.earlyLateSpacing = 0.5 # How many chips to offset for E & L codes.
         self.codeLoopNoiseBandwidth = 2 # [Hz]
         self.codeZeta = 0.7
