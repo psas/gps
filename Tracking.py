@@ -43,7 +43,7 @@ def main():
     # Import data. Will read many ms at once, then process the blocks as needed.
     # Need these to pass to importFile module
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 35
+    numberOfMilliseconds = 350
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0
     global GPS_conf
@@ -85,10 +85,10 @@ class Channel:
     At least 4 are required to get a pseudorange.
     '''
     def __init__(self, datain, acqData, chartoutput = True):
-        #Acquisition inputs
+        
         global GPS_conf
         self.settings = GPS_conf['TRACKING']
-
+        #Acquisition inputs
         self.data = datain
         self.codePhase = acqData.CodePhaseSamples
         self.acquiredCarrFreq = acqData.FineFrequencyEstimate
@@ -98,23 +98,9 @@ class Channel:
         self.progress = True #Output progress
         self.status = False # True if tracking was successful, False otherwise.
 
-        #Tracking Parameters (these should be moved to a .json,.xml,or .conf soon)
-        #self.earlyLateSpacing = 0.5 # How many chips to offset for E & L codes.
-        #self.codeLoopNoiseBandwidth = 2 # [Hz]
-        #self.codeZeta = 0.7
-        #self.codeLoopGain = 1.
-        #self.carrLoopNoiseBandwidth = 25 # 25 [Hz]
-        #self.carrZeta = 0.7
-        #self.carrLoopGain = 0.25 # 0.25
-        #self.codeFreqBasis = 1.023*10**6 # L1 C/A Code frequency
-        #self.samplingFreq = 4.092*10**6 # Sampling frequency of ADC
-        #self.codeLength = 1023
+        
         self.SamplesPerChip = int(float(GPS_conf['DATA']['fs']) /
                                   float(self.settings['codeFreqBasis']))
-
-        #self.PDIcode = .001
-        #self.PDIcarr = .001
-
 
         #Tracking Result/Logging Parameters
         self.outputChart = chartoutput
@@ -133,7 +119,7 @@ class Channel:
             self.Q_E  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
             self.Q_L  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
             
-            self.dllDiscr = np.zeros(int(self.settings['msToProcess']))                                          # Code-Loop discriminator
+            self.dllDiscr = np.zeros(int(self.settings['msToProcess']))         # Code-Loop discriminator
             self.dllDiscrFilt = np.zeros(int(self.settings['msToProcess']))     # Code-Loop discriminator filter
             self.pllDiscr = np.zeros(int(self.settings['msToProcess']))         # Carrier-Loop discriminator
             self.pllDiscrFilt = np.zeros(int(self.settings['msToProcess']))     # Carrier-Loop discriminator filter
@@ -157,17 +143,14 @@ class Channel:
         # Process each channel (Will impliment loop in future. For now only processing one channel)
         # Process channel if PRN is non-zero (Acquisition successful)
         if self.PRN:
-                        
             # Create instance of TrackingResults to store results into
             CACode = GoldCode.getTrackingCode(self.PRN)
 
             # Perform additional initializations:
             codeFreq = float(self.settings['codeFreqBasis'])
 
-            # Residual code phase (Chips)
+            # Residual code/carrier phase
             remCodePhase = 0.0
-
-            # define residual carrier phase
             remCarrPhase  = 0.0
 
             # code tracking loop parameters
@@ -183,7 +166,7 @@ class Channel:
 
             carrFreq = self.acquiredCarrFreq
 
-            #Pre-cast configuration
+            #Pre-cast configuration parameters
             ms = int(self.settings['msToProcess'])
             fs = float(GPS_conf['DATA']['fs'])
             codeLength = int(self.settings['codeLength'])
@@ -249,7 +232,6 @@ class Channel:
                 #print("remCodePhase: %f" %remCodePhase)
                 
                 # Generate the carrier frequency to mix the signal to baseband
-                #time    = np.linspace(0, blksize/self.samplingFreq, blksize+1, endpoint=True)
                 time = np.array(range(0,blksize+1))/fs
 
                 #print("Length of time array for cos and sin: %d" %len(time))
