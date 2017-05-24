@@ -26,14 +26,23 @@ parser = argparse.ArgumentParser(
 parser.add_argument('DataFile')
 args = parser.parse_args()
 
+# Create class to store words:
+class SingleWord:
+    def __init__(self):
+        self.WordData = None # 30 bits (stored as one byte per bit)
+        self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.ParityD25toD30 = None # Current parity bits
+
+
 # Create class to store subframes:
 class SubFrame:
     def __init__(self):
-        self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
-        self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
-        self.FrameData = None # 300 bytes long (each byte is one bit value)
+        self.Word = []
+        aWord = SingleWord()
+        for i in range(10):
+            self.Word.append(aWord)
         self.FrameNumber = None # Will be a value 1-5
-        self.ParityD25toD30 = None # Current parity bits
 
 TrackingData = np.fromfile(args.DataFile, dtype=np.int8, count=-1,sep='')
 
@@ -83,28 +92,32 @@ for (ind,val) in enumerate(preambleIndexList):
         break # Current subframe not complete, so break.
         # Will need to do another check to make sure val > 1
     curSubFrame = SubFrame()
-    curSubFrame.LastD29 = TrackingData[val-2]
-    curSubFrame.LastD30 = TrackingData[val-1]
-    curSubFrame.FrameData = TrackingData[val:val+301]
+    for indWord in range(10):
+        curSubFrame.Word[indWord].LastD29 = TrackingData[val + indWord*30 - 2]
+        curSubFrame.Word[indWord].LastD30 = TrackingData[val + indWord*30 - 1]
+        curSubFrame.Word[indWord].ParityD25toD30 = TrackingData[val + indWord*30 + 24:val + indWord*30 + 30]
+        curSubFrame.Word[indWord].WordData = TrackingData[val + indWord*30:val + indWord*30 + 24]
     SubFrameList.append(curSubFrame)
 
-# Convert data bits 1-24 so that multiplication can replace modulo-2 addition
-for indFrame in range(len(SubFrameList)):
-    #print ("Frame %d of %d" %(indFrame+1,len(SubFrameList)))
-    for indBit in range(24): # change bits 1-24
-        if SubFrameList[indFrame].FrameData[indBit] == 1:
-            SubFrameList[indFrame].FrameData[indBit] = -1
-        elif SubFrameList[indFrame].FrameData[indBit] == 0:
-            SubFrameList[indFrame].FrameData[indBit] = 1
-        else:
-            print("Data bit found that was not 0 or 1!!!")
+#c2
 
+parityResult = CheckParity(SubFrameList[0].Word[0].WordData, SubFrameList[0].Word[0].ParityD25toD30, SubFrameList[0].Word[0].LastD29, SubFrameList[0].Word[0].LastD30)
+print(parityResult)
+quit()
 
 ### Generate parity matrix
 # First 5 rows, same vector but rotated
 hRow = [1,1,1,0,1,1,0,0,0,1,1,1,1,1,0,0,1,1,0,1,0,0,1,0]
 # Last row is different
 hRowLast = [0,0,1,0,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,0,0,1,1,1]
+# Create matrix
+H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
+
+### Generate parity matrix
+# First 5 rows, same vector but rotated
+hRow = [-1,-1,-1,1,-1,-1,1,1,1,-1,-1,-1,-1,-1,1,1,-1,-1,1,-1,1,1,-1,1]
+# Last row is different
+hRowLast = [1,1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,1,-1,1,1,1,-1,1,1,-1,-1,-1]
 # Create matrix
 H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
 
