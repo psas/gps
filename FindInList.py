@@ -42,10 +42,19 @@ def CheckParity(Data24Bits, Parity6Bits, D29, D30):
     # Each of the 6 rows of the resulting matrix will provide a single
     # parity bit by multiplying all non-zero elements together and then
     # multiplying by either D29 or D30 and then decoding
-    # the resulting bit. 
+    # the resulting bit.
+    parityBits = []
+    for indRow in range(6):
+        tmpBit = 1 # Must start out as one
+        for indCol in range(24):
+            if np.abs(DxH[indRow,indCol]) == 1:
+                tmpBit = tmpBit*DxH[indRow,indCol]
+        parityBits.append(tmpBit)
+    parityBits = np.array(UnencodeData(parityBits), dtype=np.int)
 
-    print(DxH)
-    print(Parity6Bits)
+    # Check to see that generated parity matches received parity bits
+    if np.array_equal(parityBits, Parity6Bits):
+        ParityMatches = True
     return ParityMatches
 
 
