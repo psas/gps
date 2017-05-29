@@ -23,3 +23,22 @@ The proposed contents of this folder are listed below. Each section is best read
 - B.Using the prototype
 - C.Additional work
 
+# GPS Signal Overview
+
+The goal of the receiver at this stage is to obtain a pseudorange, the receivers location on the Earth. This is possible by listening to the GPS satellite network, which continuously transmits the position and time of a data frame transmission. Using this information, the reciever can find the distance between itself, and at least 4 satellites to triangulate its location.
+
+## Data
+
+The data frames being sent by each of the satellites are binary phase shift key (BPSK) modulated. All that really means is that digital 1s and 0s cause the signal to "flip over", or more precisely they shift phase by 180 degrees. These can be represented mathematically by a 1 or -1 multiplication. 50 data bits are transmitted per second. 
+
+## CDMA
+
+All ~30 of the GPS satellites use the same frequency (1575.42 MHz) for commmunication. Code division multiple access (CDMA) is used to keep the signals from each satellite apart. Each satellite is assinged a pseudo-random sequence of 1s and -1s called chips. Unlike bits, they only exist for channel access, and carry no information on their own. The chip sequence is also called a Gold Code, and is 1023 chips long. 
+
+Gold Codes described in more detail in chapter 1. 
+
+## L1 Carrier
+
+The $Data * Chips$ signal travels on the GPS L1 frequency of 1575.42 MHz. There are other frequencies, but they are out of scope for this project. The core part of a GPS receiver is its trakcing loops. These interlocked loops track the carrier signal as it Doppler shifts, and the Gold Code as it drifts out of phase. 
+
+If these two loops are locked, the code and carrier can be cancelled out, leaving the data bits behind. From the bits, we can get a location for the receiver. 
