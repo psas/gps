@@ -25,6 +25,7 @@ def CheckParity(Data24Bits, Parity6Bits, D29, D30):
     EncD30 = EncodeData(D30)
     #pdb.set_trace() # Spawn python shell
 
+    print(EncD30)
     # Invert only the data bits (D1-D24) by multiplying with prior D30
     EncData = EncD30*EncData
 
@@ -43,19 +44,21 @@ def CheckParity(Data24Bits, Parity6Bits, D29, D30):
     # parity bit by multiplying all non-zero elements together and then
     # multiplying by either D29 or D30 and then decoding
     # the resulting bit.
+    D29orD30 = [EncD29, EncD30, EncD29, EncD30, EncD30, EncD29]
     parityBits = []
     for indRow in range(6):
         tmpBit = 1 # Must start out as one
         for indCol in range(24):
             if np.abs(DxH[indRow,indCol]) == 1:
                 tmpBit = tmpBit*DxH[indRow,indCol]
+        tmpBit = D29orD30[indRow]*tmpBit
         parityBits.append(tmpBit)
     parityBits = np.array(UnencodeData(parityBits), dtype=np.int)
 
     # Check to see that generated parity matches received parity bits
     if np.array_equal(parityBits, Parity6Bits):
         ParityMatches = True
-    return ParityMatches
+    return ParityMatches, UnencodeData(EncData)
 
 
 
@@ -63,11 +66,11 @@ def EncodeData(UnencodedData):
     # Check whether numpy array or scalar value
     if isinstance(UnencodedData,(np.ndarray,list)):
         DataLength = len(UnencodedData)
-        EncodedData = np.zeros(DataLength)
+        EncodedData = np.zeros(DataLength, dtype=np.int)
         for ind in range(DataLength):
-            if UnencodedData[ind] == 0:
+            if int(UnencodedData[ind]) == 0:
                 EncodedData[ind] = 1
-            elif UnencodedData[ind] == 1:
+            elif int(UnencodedData[ind]) == 1:
                 EncodedData[ind] = -1
             else:
                 print("Error: Unencoded Data contains values other than 0 or 1.")
@@ -85,13 +88,14 @@ def UnencodeData(EncodedData):
     # Check whether numpy array or scalar value
     if isinstance(EncodedData,(np.ndarray,list)):
         DataLength = len(EncodedData)
-        UnencodedData = np.zeros(DataLength)
+        UnencodedData = np.zeros(DataLength, dtype=np.int)
         for ind in range(DataLength):
             if EncodedData[ind] == 1:
                 UnencodedData[ind] = 0
             elif EncodedData[ind] == -1:
                 UnencodedData[ind] = 1
             else:
+                print(UnencodedData[ind])
                 print("Error: Encoded Data contains values other than -1 or 1.")
     else:
         if EncodedData == 1:

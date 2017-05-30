@@ -16,8 +16,10 @@ import time
 import matplotlib.pyplot as plt
 from FindInList import *
 import pdb
+import sys
 
 np.set_printoptions(threshold=np.inf)
+sys.argv = [sys.argv[0], 'SV1_120s.bin']
 
 parser = argparse.ArgumentParser(
         description='Reads ephemeris data from Tracking data bit dump.',
@@ -33,21 +35,19 @@ class SingleWord:
         self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
         self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
         self.ParityD25toD30 = None # Current parity bits
-
+        self.PassesParityCheck = None
 
 # Create class to store subframes:
 class SubFrame:
     def __init__(self):
         self.Word = []
-        aWord = SingleWord()
-        for i in range(10):
-            self.Word.append(aWord)
         self.FrameNumber = None # Will be a value 1-5
+        self.PassesParityCheck = None
 
 TrackingData = np.fromfile(args.DataFile, dtype=np.int8, count=-1,sep='')
 
-PreambleRegular  = np.array([1,0,0,0,1,0,1,1]) #.decode()
-PreambleInverted = np.array([0,1,1,1,0,1,0,0]) #.decode()
+PreambleRegular  = np.array([1,0,0,0,1,0,1,1]) # 0x0100000001000101
+PreambleInverted = np.array([0,1,1,1,0,1,0,0]) # 0x0001010100010000
 
 # Find occurences of preamble pattern and store indexes in array
 matches = FindListInList(TrackingData, PreambleInverted)
@@ -82,8 +82,6 @@ for (ind,val) in enumerate(matches):
 print(preambleIndexList)
 print("Total preambles found: %d" %len(preambleIndexList))
 
-#c1
-
 # Now that the preambles are found, load class with subframe information
 SubFrameList = []
 for (ind,val) in enumerate(preambleIndexList):
@@ -93,32 +91,23 @@ for (ind,val) in enumerate(preambleIndexList):
         # Will need to do another check to make sure val > 1
     curSubFrame = SubFrame()
     for indWord in range(10):
-        curSubFrame.Word[indWord].LastD29 = TrackingData[val + indWord*30 - 2]
-        curSubFrame.Word[indWord].LastD30 = TrackingData[val + indWord*30 - 1]
-        curSubFrame.Word[indWord].ParityD25toD30 = TrackingData[val + indWord*30 + 24:val + indWord*30 + 30]
-        curSubFrame.Word[indWord].WordData = TrackingData[val + indWord*30:val + indWord*30 + 24]
+        curWord = SingleWord()
+        curWord.LastD29 = TrackingData[val + indWord*30 - 2]
+        curWord.LastD30 = TrackingData[val + indWord*30 - 1]
+        curWord.ParityD25toD30 = TrackingData[val + indWord*30 + 24:val + indWord*30 + 30]
+        curWord.WordData = TrackingData[val + indWord*30:val + indWord*30 + 24]
+        curSubFrame.Word.append(curWord)
     SubFrameList.append(curSubFrame)
 
-#c2
-
-parityResult = CheckParity(SubFrameList[0].Word[0].WordData, SubFrameList[0].Word[0].ParityD25toD30, SubFrameList[0].Word[0].LastD29, SubFrameList[0].Word[0].LastD30)
-print(parityResult)
+for curFrame in range(len(SubFrameList)):
+    for curWord in range(10):
+        parityResult, PolarityCorrectedData = CheckParity(SubFrameList[curFrame].Word[curWord].WordData, SubFrameList[curFrame].Word[curWord].ParityD25toD30, SubFrameList[curFrame].Word[curWord].LastD29, SubFrameList[curFrame].Word[curWord].LastD30)
+        #print(parityResult)
+        if curWord == 1:  # This means it is the HOW word, so we'll find the SubFrame number
+            SubframeNumber = 4*PolarityCorrectedData[19] + 2*PolarityCorrectedData[20] + 1*PolarityCorrectedData[21]
+            SubFrameList[curFrame].FrameNumber = SubframeNumber
+            print("Frame number: %d" %(SubframeNumber))
+        print(PolarityCorrectedData)
 quit()
-
-### Generate parity matrix
-# First 5 rows, same vector but rotated
-hRow = [1,1,1,0,1,1,0,0,0,1,1,1,1,1,0,0,1,1,0,1,0,0,1,0]
-# Last row is different
-hRowLast = [0,0,1,0,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,0,0,1,1,1]
-# Create matrix
-H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
-
-### Generate parity matrix
-# First 5 rows, same vector but rotated
-hRow = [-1,-1,-1,1,-1,-1,1,1,1,-1,-1,-1,-1,-1,1,1,-1,-1,1,-1,1,1,-1,1]
-# Last row is different
-hRowLast = [1,1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,1,-1,1,1,1,-1,1,1,-1,-1,-1]
-# Create matrix
-H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
 
 #pdb.set_trace() # Spawn python shell
