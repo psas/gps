@@ -1,6 +1,6 @@
 # GPS Docs
 
-The files in this folder are intended to give a comprehensive overview of the development and usage of the SDR GPS reciever. The documentation assumes a certain level of technical knowledge at points, so it may be worth brushing up on Fourier analysis, and signal processing concepts before digging in. 
+The files in this folder are intended to give a comprehensive overview of the development and usage of the SDR GPS receiver. The documentation assumes a certain level of technical knowledge at points, so it may be worth brushing up on Fourier analysis, and signal processing concepts before digging in. 
 
 # Setup
 
@@ -13,7 +13,7 @@ Download and install Python3, and then use pip to install numpy. The docs are vi
 The proposed contents of this folder are listed below. Each section is best read after the ones preceding it. Some sections are still a work in progress.
 
 - README 
-- 1.GoldCodes
+- 1.Gold Codes
 - 2.Acquisition 
 - 3.Carrier Tracking
 - 4.Code Tracking
@@ -25,7 +25,7 @@ The proposed contents of this folder are listed below. Each section is best read
 
 # GPS Signal Overview
 
-The goal of the receiver at this stage is to obtain a pseudorange, the receivers location on the Earth. This is possible by listening to the GPS satellite network, which continuously transmits the position and time of a data frame transmission. Using this information, the reciever can find the distance between itself, and at least 4 satellites to triangulate its location.
+The goal of the receiver at this stage is to obtain a pseudorange, the receivers location on the Earth. This is possible by listening to the GPS satellite network, which continuously transmits the position and time of a data frame transmission. Using this information, the receiver can find the distance between itself, and at least 4 satellites to triangulate its location.
 
 ## Data
 
@@ -33,12 +33,12 @@ The data frames being sent by each of the satellites are binary phase shift key 
 
 ## CDMA
 
-All ~30 of the GPS satellites use the same frequency (1575.42 MHz) for commmunication. Code division multiple access (CDMA) is used to keep the signals from each satellite apart. Each satellite is assinged a pseudo-random sequence of 1s and -1s called chips. Unlike bits, they only exist for channel access, and carry no information on their own. The chip sequence is also called a Gold Code, and is 1023 chips long. 
+All ~30 of the GPS satellites use the same frequency (1575.42 MHz) for communication. Code division multiple access (CDMA) is used to keep the signals from each satellite apart. Each satellite is assigned a pseudo-random sequence of 1s and -1s called chips. Unlike bits, they only exist for channel access, and carry no information on their own. The chip sequence is also called a Gold Code, and is 1023 chips long. 
 
 Gold Codes described in more detail in chapter 1. 
 
 ## L1 Carrier
 
-The $Data * Chips$ signal travels on the GPS L1 frequency of 1575.42 MHz. There are other frequencies, but they are out of scope for this project. The core part of a GPS receiver is its trakcing loops. These interlocked loops track the carrier signal as it Doppler shifts, and the Gold Code as it drifts out of phase. 
+The $Data * Chips$ signal travels on the GPS L1 frequency of 1575.42 MHz. There are other frequencies, but they are out of scope for this project. The core part of a GPS receiver is its tracking loops. These interlocked loops track the carrier signal as it Doppler shifts, and the Gold Code as it drifts out of phase. 
 
-If these two loops are locked, the code and carrier can be cancelled out, leaving the data bits behind. From the bits, we can get a location for the receiver. 
+If these two loops are locked, the code and carrier can be canceled out, leaving the data bits behind. From the bits, we can get a location for the receiver. 

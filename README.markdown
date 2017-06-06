@@ -37,9 +37,9 @@ To learn more about the theory about how GPS and the software works, you can bro
 
 # Reading List
 
-These are books about GPS theory that we found helpul while working on the code:
+These are books about GPS theory that we found helpful while working on the code:
 
-- [A Software-Defined GPS and Galileo Receiver: A Single-Frequency Approach](https://www.bookfinder.com/search/?isbn=9780817643904) by Borre, Akos et.al.: We used this book very extensively since their implementation is similar to what we are trying to do. The book comes with a DVD contaning a (GPL Licensed) MATLAB receiver, and one may notice that our code is very similar in some spots to the MATLAB code. 
+- [A Software-Defined GPS and Galileo Receiver: A Single-Frequency Approach](https://www.bookfinder.com/search/?isbn=9780817643904) by Borre, Akos et.al.: We used this book very extensively since their implementation is similar to what we are trying to do. The book comes with a DVD containing a (GPL Licensed) MATLAB receiver, and one may notice that our code is very similar in some spots to the MATLAB code. 
 
 - [Understanding GPS: Principles and Applications](https://www.bookfinder.com/search/?isbn=9780890067932) by Kaplan: This book is probably the most approachable to someone who is unfamiliar with GPS. This is our recommended starting point.
 
