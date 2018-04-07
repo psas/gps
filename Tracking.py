@@ -62,6 +62,7 @@ def main():
     #data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
     #data.importFile('resources/Single4092KHz120s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
 
+    # Set up demo acquisition result for file. 
     acqresult = Acquisition.SatStats()
     theCodePhase = 630.251585
     acqresult.CodePhaseSamples = int((1023.0 - theCodePhase)*4 + 1)
