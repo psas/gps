@@ -16,8 +16,10 @@ import time
 import matplotlib.pyplot as plt
 from FindInList import *
 import pdb
+import sys
 
 np.set_printoptions(threshold=np.inf)
+sys.argv = [sys.argv[0], 'SV1_120s.bin']
 
 parser = argparse.ArgumentParser(
         description='Reads ephemeris data from Tracking data bit dump.',
@@ -26,19 +28,26 @@ parser = argparse.ArgumentParser(
 parser.add_argument('DataFile')
 args = parser.parse_args()
 
+# Create class to store words:
+class SingleWord:
+    def __init__(self):
+        self.WordData = None # 30 bits (stored as one byte per bit)
+        self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
+        self.ParityD25toD30 = None # Current parity bits
+        self.PassesParityCheck = None
+
 # Create class to store subframes:
 class SubFrame:
     def __init__(self):
-        self.LastD29 = None # Second-to-last bit from last frame (value 0 or 1 initially)
-        self.LastD30 = None # Second-to-last bit from last frame (value 0 or 1 initially)
-        self.FrameData = None # 300 bytes long (each byte is one bit value)
+        self.Word = []
         self.FrameNumber = None # Will be a value 1-5
-        self.ParityD25toD30 = None # Current parity bits
+        self.PassesParityCheck = None
 
 TrackingData = np.fromfile(args.DataFile, dtype=np.int8, count=-1,sep='')
 
-PreambleRegular  = np.array([1,0,0,0,1,0,1,1]) #.decode()
-PreambleInverted = np.array([0,1,1,1,0,1,0,0]) #.decode()
+PreambleRegular  = np.array([1,0,0,0,1,0,1,1]) # 0x0100000001000101
+PreambleInverted = np.array([0,1,1,1,0,1,0,0]) # 0x0001010100010000
 
 # Find occurences of preamble pattern and store indexes in array
 matches = FindListInList(TrackingData, PreambleInverted)
@@ -73,8 +82,6 @@ for (ind,val) in enumerate(matches):
 print(preambleIndexList)
 print("Total preambles found: %d" %len(preambleIndexList))
 
-#c1
-
 # Now that the preambles are found, load class with subframe information
 SubFrameList = []
 for (ind,val) in enumerate(preambleIndexList):
@@ -83,29 +90,24 @@ for (ind,val) in enumerate(preambleIndexList):
         break # Current subframe not complete, so break.
         # Will need to do another check to make sure val > 1
     curSubFrame = SubFrame()
-    curSubFrame.LastD29 = TrackingData[val-2]
-    curSubFrame.LastD30 = TrackingData[val-1]
-    curSubFrame.FrameData = TrackingData[val:val+301]
+    for indWord in range(10):
+        curWord = SingleWord()
+        curWord.LastD29 = TrackingData[val + indWord*30 - 2]
+        curWord.LastD30 = TrackingData[val + indWord*30 - 1]
+        curWord.ParityD25toD30 = TrackingData[val + indWord*30 + 24:val + indWord*30 + 30]
+        curWord.WordData = TrackingData[val + indWord*30:val + indWord*30 + 24]
+        curSubFrame.Word.append(curWord)
     SubFrameList.append(curSubFrame)
 
-# Convert data bits 1-24 so that multiplication can replace modulo-2 addition
-for indFrame in range(len(SubFrameList)):
-    #print ("Frame %d of %d" %(indFrame+1,len(SubFrameList)))
-    for indBit in range(24): # change bits 1-24
-        if SubFrameList[indFrame].FrameData[indBit] == 1:
-            SubFrameList[indFrame].FrameData[indBit] = -1
-        elif SubFrameList[indFrame].FrameData[indBit] == 0:
-            SubFrameList[indFrame].FrameData[indBit] = 1
-        else:
-            print("Data bit found that was not 0 or 1!!!")
-
-
-### Generate parity matrix
-# First 5 rows, same vector but rotated
-hRow = [1,1,1,0,1,1,0,0,0,1,1,1,1,1,0,0,1,1,0,1,0,0,1,0]
-# Last row is different
-hRowLast = [0,0,1,0,1,1,0,1,1,1,1,0,1,0,1,0,0,0,1,0,0,1,1,1]
-# Create matrix
-H = np.array([hRow, np.roll(hRow,1), np.roll(hRow,2), np.roll(hRow,3), np.roll(hRow,4), hRowLast])
+for curFrame in range(len(SubFrameList)):
+    for curWord in range(10):
+        parityResult, PolarityCorrectedData = CheckParity(SubFrameList[curFrame].Word[curWord].WordData, SubFrameList[curFrame].Word[curWord].ParityD25toD30, SubFrameList[curFrame].Word[curWord].LastD29, SubFrameList[curFrame].Word[curWord].LastD30)
+        #print(parityResult)
+        if curWord == 1:  # This means it is the HOW word, so we'll find the SubFrame number
+            SubframeNumber = 4*PolarityCorrectedData[19] + 2*PolarityCorrectedData[20] + 1*PolarityCorrectedData[21]
+            SubFrameList[curFrame].FrameNumber = SubframeNumber
+            print("Frame number: %d" %(SubframeNumber))
+        print(PolarityCorrectedData)
+quit()
 
 #pdb.set_trace() # Spawn python shell
