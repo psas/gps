@@ -35,15 +35,20 @@ import Acquisition
 import GoldCode
 from GPSData import IQData
 
+global GPS_conf
+
 #np.set_printoptions(threshold=np.inf)
 
 def main():
     # Import data. Will read many ms at once, then process the blocks as needed.
     # Need these to pass to importFile module
     fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 310
+    numberOfMilliseconds = 350
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0
+    global GPS_conf
+    GPS_conf = configparser.ConfigParser()
+    GPS_conf.read('Settings.conf')
 
     data = IQData()
     # Uncomment one of these lines to choose between Launch12 or gps-sdr-sim data
@@ -57,6 +62,7 @@ def main():
     #data.importFile('resources/Single4092KHz60s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
     #data.importFile('resources/Single4092KHz120s.max', fs, sampleLength, bytesToSkip, RealDataOnly)
 
+    # Set up demo acquisition result for file. 
     acqresult = Acquisition.SatStats()
     theCodePhase = 630.251585
     acqresult.CodePhaseSamples = int((1023.0 - theCodePhase)*4 + 1)
@@ -68,7 +74,9 @@ def main():
     channel1.Track()
     #channel1._writeBits()
     channel1._writeBits2()
-    channel1.GetEphemeris()
+    #channel1.GetEphemeris()
+
+
 
 
 
@@ -78,6 +86,10 @@ class Channel:
     At least 4 are required to get a pseudorange.
     '''
     def __init__(self, datain, acqData, chartoutput = True):
+        
+        global GPS_conf
+        self.settings = GPS_conf['TRACKING']
+        
         #Acquisition inputs
        
         self.data = datain
@@ -88,24 +100,9 @@ class Channel:
 
         self.progress = True #Output progress
         self.status = False # True if tracking was successful, False otherwise.
-
-        #Tracking Parameters (these should be moved to a .json,.xml,or .conf soon)
-        self.msToProcess = 300 # How many ms blocks to process per channel
-        self.earlyLateSpacing = 0.5 # How many chips to offset for E & L codes.
-        self.codeLoopNoiseBandwidth = 2 # [Hz]
-        self.codeZeta = 0.7
-        self.codeLoopGain = 1.
-        self.carrLoopNoiseBandwidth = 25 # 25 [Hz]
-        self.carrZeta = 0.7
-        self.carrLoopGain = 0.25 # 0.25
-        self.codeFreqBasis = 1.023*10**6 # L1 C/A Code frequency
-        self.samplingFreq = 4.092*10**6 # Sampling frequency of ADC
-        self.codeLength = 1023
-        self.SamplesPerChip = int(self.samplingFreq/self.codeFreqBasis)
-
-        self.PDIcode = .001
-        self.PDIcarr = .001
-
+        
+        self.SamplesPerChip = int(float(GPS_conf['DATA']['fs']) /
+                                  float(self.settings['codeFreqBasis']))
 
         #Tracking Result/Logging Parameters
         self.outputChart = chartoutput
@@ -113,19 +110,21 @@ class Channel:
         #if self.outputChart:
         if True:
             #Preallocate space if charts are requested
-            self.absoluteSample = np.zeros((self.msToProcess)) # Sample that C/A code 1st starts.
-            self.codeFreq = np.zeros((self.msToProcess)) # C/A code frequency.
-            self.carrFreq = np.zeros((self.msToProcess)) # Frequency of tracked carrier.
-            self.I_P  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.I_E  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.I_L  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.Q_P  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.Q_E  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.Q_L  = np.zeros((self.msToProcess)) # Correlator outputs (resulting sum).
-            self.dllDiscr = np.zeros((self.msToProcess)) # Code-Loop discriminator
-            self.dllDiscrFilt = np.zeros((self.msToProcess)) # Code-Loop discriminator filter
-            self.pllDiscr = np.zeros((self.msToProcess)) # Carrier-Loop discriminator
-            self.pllDiscrFilt = np.zeros((self.msToProcess)) # Carrier-Loop discriminator filter
+            self.absoluteSample = np.zeros(int(self.settings['msToProcess']))   # Sample that C/A code 1st starts.
+            self.codeFreq = np.zeros(int(self.settings['msToProcess']))         # C/A code frequency.
+            self.carrFreq = np.zeros(int(self.settings['msToProcess']))         # Frequency of tracked carrier.
+            
+            self.I_P  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            self.I_E  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            self.I_L  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            self.Q_P  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            self.Q_E  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            self.Q_L  = np.zeros(int(self.settings['msToProcess']))             # Correlator outputs (resulting sum).
+            
+            self.dllDiscr = np.zeros(int(self.settings['msToProcess']))         # Code-Loop discriminator
+            self.dllDiscrFilt = np.zeros(int(self.settings['msToProcess']))     # Code-Loop discriminator filter
+            self.pllDiscr = np.zeros(int(self.settings['msToProcess']))         # Carrier-Loop discriminator
+            self.pllDiscrFilt = np.zeros(int(self.settings['msToProcess']))     # Carrier-Loop discriminator filter
     
     def Track(self):
         '''
@@ -133,12 +132,15 @@ class Channel:
         carrier to get navigation bits. Takes no arguments, but reads from self.data,
         and outputs navigation data on self.I_P.
         '''
+        global GPS_conf
 
         # Calculate filter coefficient values for code loop
-        tau1code, tau2code = self._calcLoopCoef(self.codeLoopNoiseBandwidth, self.codeZeta, self.codeLoopGain)
+        coeffCode1, coeffCode2 = self._calcLoopCoef(float(self.settings['codeLoopNoiseBandwidth'])
+                                                , float(self.settings['codeZeta']), float(self.settings['codeLoopGain']))
 
         # Calculate filter coefficient values for carrier loop
-        tau1carr, tau2carr = self._calcLoopCoef(self.carrLoopNoiseBandwidth, self.carrZeta, self.carrLoopGain)
+        coeffCar1, coeffCar2 = self._calcLoopCoef(float(self.settings['carrLoopNoiseBandwidth'])
+                                                , float(self.settings['carrZeta']), float(self.settings['carrLoopGain']))
 
         # Process each channel (Will impliment loop in future. For now only processing one channel)
         # Process channel if PRN is non-zero (Acquisition successful)
@@ -149,9 +151,9 @@ class Channel:
             CACode = GoldCode.getTrackingCode(self.PRN)
 
             # Perform additional initializations:
-            codeFreq = self.codeFreqBasis
+            codeFreq = float(self.settings['codeFreqBasis'])
 
-            # Residual code phase (Chips)
+            # Residual code/carrier phase
             remCodePhase = 0.0
 
             # define residual carrier phase
@@ -170,19 +172,24 @@ class Channel:
 
             carrFreq = self.acquiredCarrFreq
 
-            # Process the requested number of code periods (num of ms to process)
-            for loopCount in range(0, self.msToProcess):
-                if self.progress:
-                    print("------- %2.1f perecnt complete --------"%((loopCount/self.msToProcess)*100), end = '\r')
-                # Read current block of data
-                # Find the size of a "block" or code period in whole samples
+            #Pre-cast configuration parameters
+            ms = int(self.settings['msToProcess'])
+            fs = float(GPS_conf['DATA']['fs'])
+            codeLength = int(self.settings['codeLength'])
+            earlyLateSpacing = float(self.settings['earlyLateSpacing'])
+            chippingRate = float(self.settings['codeFreqBasis'])
 
+            # Process the requested number of code periods (num of ms to process)
+            for loopCount in range(0, ms):
+                if self.progress:
+                    print("------- %2.1f percent complete --------"%((loopCount/ms)*100), end = '\r')
+                
                 # Update the phasestep based on code freq (variable) and
                 # sampling frequency (fixed)
-                codePhaseStep = np.real(codeFreq / self.samplingFreq)
+                codePhaseStep = np.real(codeFreq / fs)
 
                 #print("Old blksize: %d"%blksize)
-                blksize = int(np.ceil((self.codeLength-remCodePhase) / codePhaseStep))
+                blksize = int(np.ceil((codeLength-remCodePhase) / codePhaseStep))
                 #print("New blksize: %d"%blksize)
                 #print("Old remCodePhase: %f" %remCodePhase)
 
@@ -193,18 +200,18 @@ class Channel:
 
 
                 # Generate Early CA Code.
-                tStart = remCodePhase - self.earlyLateSpacing
+                tStart = remCodePhase - earlyLateSpacing
                 tStep = codePhaseStep
-                tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep - self.earlyLateSpacing
+                tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep - earlyLateSpacing
                 tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
                 tcode2 = (np.ceil(tcode)).astype(int)
                 earlyCode = CACode[tcode2]
 
 
                 # Generate Late CA Code.
-                tStart = remCodePhase + self.earlyLateSpacing
+                tStart = remCodePhase + earlyLateSpacing
                 tStep = codePhaseStep
-                tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep + self.earlyLateSpacing
+                tEnd = ((blksize-1)*codePhaseStep+remCodePhase) + codePhaseStep + earlyLateSpacing
                 tcode = np.linspace(tStart,tEnd,blksize,endpoint=False)
                 tcode2 = (np.ceil(tcode)).astype(int)
                 lateCode = CACode[tcode2]
@@ -226,19 +233,15 @@ class Channel:
                 else:
                     remCodePhase = 0
                 #print("remCodePhase: %f" %remCodePhase)
-                # The line above is not working properly. I believe the tcode array is
-                # not correct, but will need to do some debugging, therefore the
-                # remCodePhase is set to zero below, for the time being.
-                #remCodePhase = 0
-                #print("New remCodePhase: %12.8f" %remCodePhase)
-
+                
                 # Generate the carrier frequency to mix the signal to baseband
-                #time    = np.linspace(0, blksize/self.samplingFreq, blksize+1, endpoint=True)
-                time = np.array(range(0,blksize+1))/self.samplingFreq
+                time = np.array(range(0,blksize+1))/fs
 
                 #print("Length of time array for cos and sin: %d" %len(time))
                 # Get the argument to sin/cos functions
                 trigarg = ((carrFreq * 2.0 * np.pi) * time) + remCarrPhase
+                
+                # Carry the leftover phase to the next argument by looking at the last element
                 remCarrPhase = trigarg[blksize] % (2 * np.pi)
 
                 # Finally compute the signal to mix the collected data to baseband
@@ -262,7 +265,7 @@ class Channel:
                 carrError = np.arctan(Q_P / I_P) / (2.0 * np.pi)
 
                 # Implement carrier loop filter and generate NCO command
-                carrNco = oldCarrNco + (tau2carr/tau1carr) * (carrError - oldCarrError) + carrError * (self.PDIcarr/tau1carr)
+                carrNco = oldCarrNco + coeffCar1 * (carrError - oldCarrError) + carrError * coeffCar2
                 oldCarrNco   = carrNco
                 oldCarrError = carrError
 
@@ -274,12 +277,12 @@ class Channel:
                             (np.sqrt(I_E * I_E + Q_E * Q_E) + np.sqrt(I_L * I_L + Q_L * Q_L))
 
                 # Implement code loop filter and generate NCO command
-                codeNco = oldCodeNco + (tau2code/tau1code) * (codeError - oldCodeError) + codeError * (self.PDIcode/tau1code)
+                codeNco = oldCodeNco + coeffCode1 * (codeError - oldCodeError) + codeError * coeffCode2
                 oldCodeNco   = codeNco
                 oldCodeError = codeError
 
                 # Modify code freq based on NCO command
-                codeFreq = self.codeFreqBasis - codeNco
+                codeFreq = chippingRate - codeNco
 
                 if self.outputChart:
                     self.pllDiscr[loopCount] = carrError
@@ -347,7 +350,10 @@ class Channel:
         tau1 = LoopGain / (Wn * Wn);
         tau2 = (2.0 * Zeta) / Wn;
 
-        return (tau1, tau2)
+        coeff1 = tau2/tau1
+        coeff2 = float(self.settings['sumInt'])/tau1
+
+        return (coeff1, coeff2)
 
     def _writeBits(self, dr = '.', name = 'default'):
         '''
