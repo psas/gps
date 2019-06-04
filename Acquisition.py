@@ -137,7 +137,7 @@ def acquire(data, block_size_ms=10, bin_list=range(-10000,10000, 100), sat_list=
         _outputTable(satInfoList)
     return satInfoList
 
-def findSat(data,  code, bins, block_size_ms=14,tracking = False):
+def findSat(data,  code, bins, block_size_ms=10,tracking = False):
     '''
     Searches IQ Data for a single satellite across all specified frequencies.
 
