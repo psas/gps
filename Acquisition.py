@@ -23,7 +23,7 @@ def main():
     '''
     # Need these to pass to importFile module
     GPS_fs = 4.092*10**6 # Sampling Frequency [Hz]
-    numberOfMilliseconds = 8
+    numberOfMilliseconds = 14
     sampleLength = numberOfMilliseconds*10**(-3)
     bytesToSkip = 0#71000000
 
@@ -69,7 +69,7 @@ class AcquisitionResult:
         if GPS_directed:
             self.pSNR
 
-def acquire(data, block_size_ms=14, bin_list=range(-8000, 8100, 100), sat_list=range(1, 33),
+def acquire(data, block_size_ms=10, bin_list=range(-10000,10000, 100), sat_list=range(1, 33),
             show_final_plot=True, save_sat_results=False):
     '''
     Searches for GPS satellites in a raw IQ stream. File must be encodede to the
